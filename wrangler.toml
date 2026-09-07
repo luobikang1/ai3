@@ -5,3 +5,8 @@ compatibility_flags = ["nodejs_compat"]
 
 [vars]
 ADMIN_USERNAME = "admin"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "baihu_ai_db"
+database_id = "baihu-ai-three-d1-id"

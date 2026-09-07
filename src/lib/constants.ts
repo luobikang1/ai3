@@ -1,12 +1,42 @@
-import { AIModel } from '@/types';
+import { AIModel, ComputeEngine } from '@/types';
+
+export const COMPUTE_ENGINES: ComputeEngine[] = [
+  {
+    id: 'stable-diffusion',
+    name: 'Stable Diffusion (默认算力引擎)',
+    type: 'stable-diffusion',
+    description: '标准 SD WebUI / AUTOMATIC1111 / ComfyUI / SDXL 接口引擎',
+    isDefault: true,
+  },
+  {
+    id: 'cloudflare-ai',
+    name: 'Cloudflare Workers AI',
+    type: 'cloudflare-ai',
+    description: 'Cloudflare 边缘极速神经网络推理与生成平台',
+  },
+  {
+    id: 'pollinations',
+    name: 'Pollinations 公共算力集群',
+    type: 'pollinations',
+    description: '全球分布式免费高性能 GPU 图形算力节点',
+  },
+  {
+    id: 'custom-api',
+    name: '自定义 OpenAI / ComfyUI 兼容 API',
+    type: 'custom-api',
+    description: '接入个人私有服务器、OpenRouter 或第三方绘图 API',
+  },
+];
 
 export const DEFAULT_SETTINGS = {
-  defaultModel: '@cf/bytedance/stable-diffusion-xl-lightning',
+  computeEngine: 'stable-diffusion',
+  defaultModel: 'sdxl-base-1.0',
   defaultAspectRatio: '1:1',
   defaultSteps: 20,
   defaultGuidance: 7.5,
   darkMode: false,
   historyLimit: 50,
+  enableD1Sync: true,
 };
 
 export const ASPECT_RATIOS = [
@@ -18,6 +48,33 @@ export const ASPECT_RATIOS = [
 ];
 
 export const PRESET_MODELS: AIModel[] = [
+  // Stable Diffusion Out-of-the-Box Models (Default Factory Setup)
+  {
+    id: 'sdxl-base-1.0',
+    name: 'Stable Diffusion XL 1.0 (出厂默认)',
+    translatedName: 'Stable Diffusion XL 1.0 (出厂默认)',
+    description: 'Stability AI 旗舰 Stable Diffusion 核心出厂模型',
+    provider: 'stable-diffusion',
+    category: 'sdxl',
+    isPopular: true,
+  },
+  {
+    id: 'sd-v1-5',
+    name: 'Stable Diffusion v1.5',
+    translatedName: 'Stable Diffusion 1.5 经典版',
+    description: '经典 SD 1.5 模型，兼容性极高，绘图稳定度出众',
+    provider: 'stable-diffusion',
+    category: 'sd15',
+    isPopular: true,
+  },
+  {
+    id: 'sdxl-turbo',
+    name: 'SDXL Turbo Realtime',
+    translatedName: 'SDXL Turbo 实时极速版',
+    description: '单步或少量步数下极速出图的 SD 实时模型',
+    provider: 'stable-diffusion',
+    category: 'sdxl',
+  },
   // Cloudflare Workers AI Models
   {
     id: '@cf/bytedance/stable-diffusion-xl-lightning',
@@ -31,13 +88,12 @@ export const PRESET_MODELS: AIModel[] = [
   },
   {
     id: '@cf/stabilityai/stable-diffusion-xl-base-1.0',
-    name: 'Stable Diffusion XL Base 1.0',
-    translatedName: 'SDXL 基础版 1.0',
-    description: 'Stability AI 官方旗舰模型，细节丰富，适应面广',
+    name: 'SDXL Cloudflare Base 1.0',
+    translatedName: 'SDXL Cloudflare 基础版 1.0',
+    description: 'Cloudflare Workers AI 深度整合版 SDXL 基础设施',
     provider: 'cloudflare',
     cfModelPath: '@cf/stabilityai/stable-diffusion-xl-base-1.0',
     category: 'sdxl',
-    isPopular: true,
   },
   {
     id: '@cf/lykon/dreamshaper-8-lcm',
@@ -51,9 +107,9 @@ export const PRESET_MODELS: AIModel[] = [
   },
   {
     id: '@cf/runwayml/stable-diffusion-v1-5',
-    name: 'Stable Diffusion v1.5',
-    translatedName: '经典 SD 1.5 版',
-    description: '经典通用绘图模型，稳定性极佳',
+    name: 'Cloudflare SD 1.5',
+    translatedName: 'Cloudflare 托管 SD 1.5',
+    description: 'Cloudflare 边缘算力跑 SD 1.5',
     provider: 'cloudflare',
     cfModelPath: '@cf/runwayml/stable-diffusion-v1-5',
     category: 'sd15',
@@ -170,7 +226,7 @@ export const PRESET_MODELS: AIModel[] = [
   {
     id: 'ghibli-style',
     name: 'Studio Ghibli Anime',
-    translatedName: '吉卜力吉风动漫',
+    translatedName: '吉卜力风动漫',
     description: '温馨清新自然的日式童话画风',
     provider: 'pollinations',
     category: 'anime',
@@ -211,7 +267,7 @@ export const PRESET_MODELS: AIModel[] = [
   {
     id: 'paper-cut',
     name: 'Paper Cutout Origami Art',
-    translatedName: '剪纸立体折艺术',
+    translatedName: '剪纸立体折纸艺术',
     description: '层叠剪纸与阴影折纸艺术',
     provider: 'pollinations',
     category: 'sd15',
@@ -248,29 +304,5 @@ export const PRESET_MODELS: AIModel[] = [
     provider: 'pollinations',
     category: 'realistic',
     isPopular: true,
-  },
-  {
-    id: 'neon-cyber-girl',
-    name: 'Neon Cyberpunk Character',
-    translatedName: '霓虹赛博角色画风',
-    description: '炫彩高科技角色立绘',
-    provider: 'pollinations',
-    category: 'anime',
-  },
-  {
-    id: 'surrealism',
-    name: 'Dreamlike Surrealism',
-    translatedName: '梦境超现实主义',
-    description: '达利式奇幻超现实空间与意象',
-    provider: 'pollinations',
-    category: 'sdxl',
-  },
-  {
-    id: 'retro-anime-90s',
-    name: '90s Vintage Retro Anime',
-    translatedName: '90年代复古赛璐珞美型',
-    description: '经典赛璐珞手绘质感与胶片颗粒',
-    provider: 'pollinations',
-    category: 'anime',
   },
 ];

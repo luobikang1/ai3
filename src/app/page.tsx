@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { AppProvider } from '@/context/AppContext';
+import { AppProvider, useApp } from '@/context/AppContext';
 import { Navbar } from '@/components/Navbar';
 import { MobileTabBar, TabType } from '@/components/MobileTabBar';
 import { Txt2ImgTab } from '@/components/Txt2ImgTab';
@@ -10,12 +10,19 @@ import { ModelSelector } from '@/components/ModelSelector';
 import { HistoryTab } from '@/components/HistoryTab';
 import { SettingsTab } from '@/components/SettingsTab';
 import { AuthModal } from '@/components/AuthModal';
+import { LoginGateScreen } from '@/components/LoginGateScreen';
 import { Toast } from '@/components/Toast';
 
 function MainApp() {
+  const { auth } = useApp();
   const [activeTab, setActiveTab] = useState<TabType>('txt2img');
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [isModelModalOpen, setIsModelModalOpen] = useState(false);
+
+  // Require auth to access main UI
+  if (!auth.isLoggedIn) {
+    return <LoginGateScreen />;
+  }
 
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-950 text-gray-900 dark:text-gray-100 flex flex-col antialiased">

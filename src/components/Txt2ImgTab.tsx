@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import { useApp } from '@/context/AppContext';
 import { ASPECT_RATIOS } from '@/lib/constants';
-import { Sparkles, Sliders, ChevronDown, Wand2, Download, AlertCircle } from 'lucide-react';
+import { Sparkles, Sliders, ChevronDown, Wand2, Download, AlertCircle, Cpu } from 'lucide-react';
 import { GeneratedImage } from '@/types';
 
 interface Txt2ImgTabProps {
@@ -47,8 +47,12 @@ export const Txt2ImgTab: React.FC<Txt2ImgTabProps> = ({ onOpenModelModal }) => {
           model: selectedModel.id,
           steps,
           guidance,
+          computeEngine: settings.computeEngine || 'stable-diffusion',
+          sdApiEndpoint: settings.sdApiEndpoint,
+          sdApiKey: settings.sdApiKey,
           cfApiToken: settings.cfApiToken,
           cfAccountId: settings.cfAccountId,
+          customEndpoint: settings.customEndpoint,
         }),
       });
 
@@ -67,6 +71,7 @@ export const Txt2ImgTab: React.FC<Txt2ImgTabProps> = ({ onOpenModelModal }) => {
             model: selectedModel.id,
             steps,
             guidance,
+            computeEngineId: settings.computeEngine || 'stable-diffusion',
           },
           createdAt: Date.now(),
           modelName: selectedModel.translatedName || selectedModel.name,
@@ -76,7 +81,7 @@ export const Txt2ImgTab: React.FC<Txt2ImgTabProps> = ({ onOpenModelModal }) => {
         await addHistoryItem(newItem);
         showToast('图片生成成功！', 'success');
       } else {
-        const msg = data.error || '图像生成失败，外部平台未响应';
+        const msg = data.error || '图像生成失败，外部算力未响应';
         setErrorText(msg);
         showToast(msg, 'error');
       }
@@ -101,7 +106,7 @@ export const Txt2ImgTab: React.FC<Txt2ImgTabProps> = ({ onOpenModelModal }) => {
 
   return (
     <div className="space-y-4 pb-20">
-      {/* Active Model Selector Bar */}
+      {/* Active Model & Engine Selector Bar */}
       <div
         onClick={onOpenModelModal}
         className="flex items-center justify-between p-3.5 bg-gradient-to-r from-orange-500/10 via-amber-500/10 to-orange-500/5 dark:from-orange-950/30 dark:via-amber-950/20 dark:to-transparent border border-orange-200/50 dark:border-orange-800/40 rounded-xl cursor-pointer hover:border-orange-400 transition-all group"
@@ -111,14 +116,19 @@ export const Txt2ImgTab: React.FC<Txt2ImgTabProps> = ({ onOpenModelModal }) => {
             AI
           </div>
           <div className="truncate">
-            <div className="text-xs text-orange-600 dark:text-orange-400 font-medium">当前选用模型</div>
+            <div className="text-xs text-orange-600 dark:text-orange-400 font-medium flex items-center space-x-1">
+              <Cpu size={12} />
+              <span>
+                算力: {settings.computeEngine === 'cloudflare-ai' ? 'Cloudflare Workers AI' : 'Stable Diffusion (默认引擎)'}
+              </span>
+            </div>
             <div className="text-sm font-semibold text-gray-900 dark:text-white truncate">
               {selectedModel.translatedName || selectedModel.name}
             </div>
           </div>
         </div>
         <span className="text-xs text-orange-500 dark:text-orange-400 font-medium group-hover:underline shrink-0 ml-2">
-          切换模型 &rarr;
+          切换模型/算力 &rarr;
         </span>
       </div>
 

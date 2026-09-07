@@ -1,9 +1,19 @@
+export interface ComputeEngine {
+  id: string;
+  name: string;
+  type: 'stable-diffusion' | 'cloudflare-ai' | 'pollinations' | 'custom-api';
+  endpoint?: string;
+  apiKey?: string;
+  description: string;
+  isDefault?: boolean;
+}
+
 export interface AIModel {
   id: string;
   name: string;
   translatedName?: string;
   description: string;
-  provider: 'cloudflare' | 'pollinations' | 'custom';
+  provider: 'stable-diffusion' | 'cloudflare' | 'pollinations' | 'custom';
   cfModelPath?: string;
   category: 'sdxl' | 'flux' | 'sd15' | 'anime' | 'realistic' | '3d';
   isFavorite?: boolean;
@@ -22,6 +32,7 @@ export interface GenerationParams {
   strength?: number; // for img2img
   seed?: number;
   inputImage?: string; // base64 or URL for img2img
+  computeEngineId?: string;
 }
 
 export interface GeneratedImage {
@@ -33,6 +44,9 @@ export interface GeneratedImage {
 }
 
 export interface UserSettings {
+  computeEngine: string; // 'stable-diffusion' | 'cloudflare' | 'pollinations' | 'custom'
+  sdApiEndpoint?: string;
+  sdApiKey?: string;
   cfApiToken?: string;
   cfAccountId?: string;
   customEndpoint?: string;
@@ -42,6 +56,7 @@ export interface UserSettings {
   defaultGuidance: number;
   darkMode: boolean;
   historyLimit: number;
+  enableD1Sync?: boolean;
 }
 
 export interface AuthState {

@@ -82,7 +82,7 @@ export function toggleFavoriteModel(modelId: string): string[] {
   return updated;
 }
 
-// IndexedDB implementation for History storage
+// IndexedDB implementation for Local History storage
 function openDB(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
     if (typeof window === 'undefined') {
@@ -101,45 +101,60 @@ function openDB(): Promise<IDBDatabase> {
 }
 
 export async function saveHistoryItem(item: GeneratedImage): Promise<void> {
+  // 1. IndexedDB Local Store
   try {
     const db = await openDB();
     const tx = db.transaction(STORE_NAME, 'readwrite');
     const store = tx.objectStore(STORE_NAME);
     store.put(item);
-    return new Promise((resolve, reject) => {
-      tx.oncomplete = () => resolve();
-      tx.onerror = () => reject(tx.error);
-    });
   } catch (e) {
-    console.error('IndexedDB save failed, falling back to LocalStorage', e);
-    try {
-      const existing = getLocalStorageHistory();
-      existing.unshift(item);
-      localStorage.setItem('fox_ai_history_fallback', JSON.stringify(existing.slice(0, 30)));
-    } catch (err) {
-      console.error('LocalStorage fallback also failed', err);
-    }
+    console.error('IndexedDB save failed, fallback to LocalStorage', e);
   }
+
+  // 2. D1 Sync (if available)
+  try {
+    fetch('/api/history', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(item),
+    }).catch(() => {});
+  } catch {}
 }
 
 export async function getHistoryItems(): Promise<GeneratedImage[]> {
+  let localItems: GeneratedImage[] = [];
   try {
     const db = await openDB();
     const tx = db.transaction(STORE_NAME, 'readonly');
     const store = tx.objectStore(STORE_NAME);
     const request = store.getAll();
-    return new Promise((resolve, reject) => {
+    localItems = await new Promise((resolve) => {
       request.onsuccess = () => {
         const result = (request.result || []) as GeneratedImage[];
         result.sort((a, b) => b.createdAt - a.createdAt);
         resolve(result);
       };
-      request.onerror = () => reject(request.error);
+      request.onerror = () => resolve([]);
     });
-  } catch (e) {
-    console.error('IndexedDB read failed, trying LocalStorage fallback', e);
-    return getLocalStorageHistory();
+  } catch {
+    localItems = [];
   }
+
+  // Try D1 Sync fetch
+  try {
+    const res = await fetch('/api/history');
+    const data = await res.json();
+    if (data.success && Array.isArray(data.data) && data.data.length > 0) {
+      const mergedMap = new Map<string, GeneratedImage>();
+      localItems.forEach((item) => mergedMap.set(item.id, item));
+      data.data.forEach((item: GeneratedImage) => mergedMap.set(item.id, item));
+      const mergedList = Array.from(mergedMap.values());
+      mergedList.sort((a, b) => b.createdAt - a.createdAt);
+      return mergedList;
+    }
+  } catch {}
+
+  return localItems;
 }
 
 export async function deleteHistoryItem(id: string): Promise<void> {
@@ -148,14 +163,13 @@ export async function deleteHistoryItem(id: string): Promise<void> {
     const tx = db.transaction(STORE_NAME, 'readwrite');
     const store = tx.objectStore(STORE_NAME);
     store.delete(id);
-    return new Promise((resolve, reject) => {
-      tx.oncomplete = () => resolve();
-      tx.onerror = () => reject(tx.error);
-    });
   } catch (e) {
     console.error('IndexedDB delete failed', e);
-    deleteLocalStorageHistoryItem(id);
   }
+
+  try {
+    fetch(`/api/history?id=${id}`, { method: 'DELETE' }).catch(() => {});
+  } catch {}
 }
 
 export async function clearAllHistory(): Promise<void> {
@@ -164,27 +178,11 @@ export async function clearAllHistory(): Promise<void> {
     const tx = db.transaction(STORE_NAME, 'readwrite');
     const store = tx.objectStore(STORE_NAME);
     store.clear();
-    localStorage.removeItem('fox_ai_history_fallback');
   } catch (e) {
     console.error('IndexedDB clear failed', e);
-    localStorage.removeItem('fox_ai_history_fallback');
   }
-}
 
-function getLocalStorageHistory(): GeneratedImage[] {
   try {
-    const raw = localStorage.getItem('fox_ai_history_fallback');
-    return raw ? JSON.parse(raw) : [];
-  } catch {
-    return [];
-  }
-}
-
-function deleteLocalStorageHistoryItem(id: string) {
-  try {
-    const items = getLocalStorageHistory().filter((i) => i.id !== id);
-    localStorage.setItem('fox_ai_history_fallback', JSON.stringify(items));
-  } catch (e) {
-    console.error('LocalStorage delete error', e);
-  }
+    fetch('/api/history', { method: 'DELETE' }).catch(() => {});
+  } catch {}
 }
