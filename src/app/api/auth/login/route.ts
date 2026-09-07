@@ -15,44 +15,45 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Default admin credentials if env vars are set
-    const expectedUsername = process.env.ADMIN_USERNAME || 'admin';
-    const expectedPassword = process.env.ADMIN_PASSWORD || 'foxai123';
+    const cleanUser = username.trim();
+    const cleanPass = password.trim();
 
-    if (username === expectedUsername && password === expectedPassword) {
-      const token = await signToken({ username });
+    const expectedUsername = process.env.ADMIN_USERNAME || 'admin';
+    const expectedPassword = process.env.ADMIN_PASSWORD;
+
+    // 1. Admin Account Authentication
+    if (cleanUser === expectedUsername) {
+      if (expectedPassword && cleanPass !== expectedPassword) {
+        return NextResponse.json(
+          { success: false, error: '管理员密码不正确' },
+          { status: 401 }
+        );
+      }
+      const token = await signToken({ username: cleanUser });
       return NextResponse.json({
         success: true,
-        data: {
-          token,
-          username,
-        },
-        message: '登录成功',
+        data: { token, username: cleanUser },
+        message: '管理员凭证校验通过，登录成功',
       });
     }
 
-    // Database-free local user registration/login fallback:
-    // Any user can register/login directly without traditional DB;
-    // Password length must be at least 4 chars.
-    if (password.length < 4) {
+    // 2. Regular Local User Login/Registration
+    if (cleanPass.length < 4) {
       return NextResponse.json(
         { success: false, error: '密码长度不能少于 4 位' },
         { status: 400 }
       );
     }
 
-    const token = await signToken({ username });
+    const token = await signToken({ username: cleanUser });
     return NextResponse.json({
       success: true,
-      data: {
-        token,
-        username,
-      },
-      message: action === 'register' ? '注册并自动登录成功' : '免数据库校验通过，已登录',
+      data: { token, username: cleanUser },
+      message: action === 'register' ? '注册并成功登录' : '通用凭证校验通过',
     });
   } catch (error: any) {
     return NextResponse.json(
-      { success: false, error: error?.message || '登录或注册过程中发生错误' },
+      { success: false, error: error?.message || '登录过程中发生错误' },
       { status: 500 }
     );
   }

@@ -4,7 +4,6 @@ export const runtime = 'edge';
 
 export async function GET(req: NextRequest) {
   try {
-    // Cloudflare D1 Database binding check
     const env = (process as any).env || {};
     const db = env.DB || (globalThis as any).DB;
 
@@ -56,7 +55,14 @@ export async function POST(req: NextRequest) {
     }
 
     const item = await req.json();
-    const { id, imageUrl, params, createdAt, modelName } = item;
+    const { id, imageUrl = '', params, createdAt, modelName } = item;
+
+    // D1 SQL statement size optimization: if imageUrl exceeds ~200KB, store a preview indicator
+    // Full high-res image remains stored safely in local IndexedDB.
+    let storedImageUrl = imageUrl;
+    if (imageUrl.length > 200000) {
+      storedImageUrl = imageUrl.substring(0, 100) + '...[IndexedDB_Local_Full_Res]';
+    }
 
     await db
       .prepare(
@@ -66,7 +72,7 @@ export async function POST(req: NextRequest) {
       )
       .bind(
         id,
-        imageUrl,
+        storedImageUrl,
         params?.prompt || '',
         params?.negativePrompt || '',
         params?.width || 1024,
