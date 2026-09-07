@@ -1,0 +1,190 @@
+import { GeneratedImage, UserSettings } from '@/types';
+import { DEFAULT_SETTINGS } from './constants';
+
+const SETTINGS_KEY = 'fox_ai_settings';
+const AUTH_TOKEN_KEY = 'fox_ai_auth_token';
+const AUTH_USER_KEY = 'fox_ai_auth_user';
+const FAVORITE_MODELS_KEY = 'fox_ai_fav_models';
+const DB_NAME = 'FoxAI_DB';
+const STORE_NAME = 'history';
+
+// LocalStorage helpers for settings
+export function getStoredSettings(): UserSettings {
+  if (typeof window === 'undefined') return DEFAULT_SETTINGS;
+  try {
+    const raw = localStorage.getItem(SETTINGS_KEY);
+    if (!raw) return DEFAULT_SETTINGS;
+    return { ...DEFAULT_SETTINGS, ...JSON.parse(raw) };
+  } catch (e) {
+    console.error('Failed to parse stored settings', e);
+    return DEFAULT_SETTINGS;
+  }
+}
+
+export function saveStoredSettings(settings: Partial<UserSettings>): UserSettings {
+  if (typeof window === 'undefined') return DEFAULT_SETTINGS;
+  const current = getStoredSettings();
+  const updated = { ...current, ...settings };
+  try {
+    localStorage.setItem(SETTINGS_KEY, JSON.stringify(updated));
+  } catch (e) {
+    console.error('Failed to save settings', e);
+  }
+  return updated;
+}
+
+// Auth state in LocalStorage
+export function getStoredAuthToken(): string | null {
+  if (typeof window === 'undefined') return null;
+  return localStorage.getItem(AUTH_TOKEN_KEY);
+}
+
+export function setStoredAuthToken(token: string | null, username?: string | null) {
+  if (typeof window === 'undefined') return;
+  if (token) {
+    localStorage.setItem(AUTH_TOKEN_KEY, token);
+    if (username) localStorage.setItem(AUTH_USER_KEY, username);
+  } else {
+    localStorage.removeItem(AUTH_TOKEN_KEY);
+    localStorage.removeItem(AUTH_USER_KEY);
+  }
+}
+
+export function getStoredUsername(): string | null {
+  if (typeof window === 'undefined') return null;
+  return localStorage.getItem(AUTH_USER_KEY);
+}
+
+// Favorite models
+export function getFavoriteModels(): string[] {
+  if (typeof window === 'undefined') return [];
+  try {
+    const raw = localStorage.getItem(FAVORITE_MODELS_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
+}
+
+export function toggleFavoriteModel(modelId: string): string[] {
+  const current = getFavoriteModels();
+  let updated: string[];
+  if (current.includes(modelId)) {
+    updated = current.filter((id) => id !== modelId);
+  } else {
+    updated = [...current, modelId];
+  }
+  try {
+    localStorage.setItem(FAVORITE_MODELS_KEY, JSON.stringify(updated));
+  } catch (e) {
+    console.error('Failed to save favorites', e);
+  }
+  return updated;
+}
+
+// IndexedDB implementation for History storage
+function openDB(): Promise<IDBDatabase> {
+  return new Promise((resolve, reject) => {
+    if (typeof window === 'undefined') {
+      return reject(new Error('Window is undefined'));
+    }
+    const request = indexedDB.open(DB_NAME, 1);
+    request.onupgradeneeded = (event) => {
+      const db = (event.target as IDBOpenDBRequest).result;
+      if (!db.objectStoreNames.contains(STORE_NAME)) {
+        db.createObjectStore(STORE_NAME, { keyPath: 'id' });
+      }
+    };
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error);
+  });
+}
+
+export async function saveHistoryItem(item: GeneratedImage): Promise<void> {
+  try {
+    const db = await openDB();
+    const tx = db.transaction(STORE_NAME, 'readwrite');
+    const store = tx.objectStore(STORE_NAME);
+    store.put(item);
+    return new Promise((resolve, reject) => {
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+    });
+  } catch (e) {
+    console.error('IndexedDB save failed, falling back to LocalStorage', e);
+    try {
+      const existing = getLocalStorageHistory();
+      existing.unshift(item);
+      localStorage.setItem('fox_ai_history_fallback', JSON.stringify(existing.slice(0, 30)));
+    } catch (err) {
+      console.error('LocalStorage fallback also failed', err);
+    }
+  }
+}
+
+export async function getHistoryItems(): Promise<GeneratedImage[]> {
+  try {
+    const db = await openDB();
+    const tx = db.transaction(STORE_NAME, 'readonly');
+    const store = tx.objectStore(STORE_NAME);
+    const request = store.getAll();
+    return new Promise((resolve, reject) => {
+      request.onsuccess = () => {
+        const result = (request.result || []) as GeneratedImage[];
+        result.sort((a, b) => b.createdAt - a.createdAt);
+        resolve(result);
+      };
+      request.onerror = () => reject(request.error);
+    });
+  } catch (e) {
+    console.error('IndexedDB read failed, trying LocalStorage fallback', e);
+    return getLocalStorageHistory();
+  }
+}
+
+export async function deleteHistoryItem(id: string): Promise<void> {
+  try {
+    const db = await openDB();
+    const tx = db.transaction(STORE_NAME, 'readwrite');
+    const store = tx.objectStore(STORE_NAME);
+    store.delete(id);
+    return new Promise((resolve, reject) => {
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+    });
+  } catch (e) {
+    console.error('IndexedDB delete failed', e);
+    deleteLocalStorageHistoryItem(id);
+  }
+}
+
+export async function clearAllHistory(): Promise<void> {
+  try {
+    const db = await openDB();
+    const tx = db.transaction(STORE_NAME, 'readwrite');
+    const store = tx.objectStore(STORE_NAME);
+    store.clear();
+    localStorage.removeItem('fox_ai_history_fallback');
+  } catch (e) {
+    console.error('IndexedDB clear failed', e);
+    localStorage.removeItem('fox_ai_history_fallback');
+  }
+}
+
+function getLocalStorageHistory(): GeneratedImage[] {
+  try {
+    const raw = localStorage.getItem('fox_ai_history_fallback');
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
+}
+
+function deleteLocalStorageHistoryItem(id: string) {
+  try {
+    const items = getLocalStorageHistory().filter((i) => i.id !== id);
+    localStorage.setItem('fox_ai_history_fallback', JSON.stringify(items));
+  } catch (e) {
+    console.error('LocalStorage delete error', e);
+  }
+}

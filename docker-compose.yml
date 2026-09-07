@@ -1,0 +1,18 @@
+version: '3.8'
+
+services:
+  fox-ai-three:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: baihu-ai-three
+    restart: always
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - ADMIN_USERNAME=admin
+      - ADMIN_PASSWORD=foxai123
+      - AUTH_SECRET=baihu-ai-3-secret-jwt-key
+      - CLOUDFLARE_API_TOKEN=${CLOUDFLARE_API_TOKEN:-}
+      - CLOUDFLARE_ACCOUNT_ID=${CLOUDFLARE_ACCOUNT_ID:-}
