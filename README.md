@@ -57,23 +57,24 @@
 ├── Dockerfile                  # Docker 多阶段构建文件 (Standalone 优化)
 ├── docker-compose.yml          # Docker Compose 一键启动配置
 ├── .dockerignore               # Docker 构建忽略文件
+├── .npmrc                      # NPM legacy peer deps 避让依赖冲突配置
 ├── vercel.json                 # Vercel 自动化部署配置文件
-├── wrangler.jsonc              # Cloudflare Workers / Pages 部署配置文件
+├── wrangler.toml               # Cloudflare Pages 部署配置文件
 ├── .env.example                # 环境变量配置示例模板
-├── package.json                # 项目依赖与脚本配置
-├── next.config.ts              # Next.js 框架配置文件 (启用 standalone)
+├── package.json                # 项目依赖与脚本配置 (含 npm run pages:build)
+├── next.config.ts              # Next.js 框架配置文件 (适配 Docker, Vercel & CF)
 ├── tsconfig.json               # TypeScript 规则配置
 └── src
     ├── app
     │   ├── api
     │   │   ├── auth
-    │   │   │   ├── login/route.ts       # 登录鉴权接口 (校验环境变量)
-    │   │   │   └── verify/route.ts      # JWT Token 身份验证接口
+    │   │   │   ├── login/route.ts       # 登录鉴权接口 (Edge Runtime)
+    │   │   │   └── verify/route.ts      # JWT Token 验证接口 (Edge Runtime)
     │   │   ├── generate
-    │   │   │   ├── text-to-image/route.ts # 文生图核心处理 Route (支持 CF AI & 降级)
-    │   │   │   └── image-to-image/route.ts # 图生图核心处理 Route
+    │   │   │   ├── text-to-image/route.ts # 文生图 Route (Edge Runtime, CF AI & 降级)
+    │   │   │   └── image-to-image/route.ts # 图生图 Route (Edge Runtime)
     │   │   └── models
-    │   │       └── translate/route.ts     # 模型名称一键中文翻译 Route
+    │   │       └── translate/route.ts     # 模型中文翻译 Route (Edge Runtime)
     │   ├── layout.tsx                  # 根布局与 Viewport 移动端配置
     │   ├── page.tsx                    # 全局主页面 (整合全功能模块)
     │   └── globals.css                 # CSS 样式与 Tailwind 导入
@@ -88,176 +89,63 @@
     │   ├── AuthModal.tsx               # 管理员登录弹窗组件
     │   └── Toast.tsx                   # 轻量提示组件
     ├── context
-    │   └── AppContext.tsx              # React 全局状态管理 (Zustand/Context 模式)
+    │   └── AppContext.tsx              # React 全局状态管理
     ├── lib
-    │   ├── auth.ts                     # jose 加密 Token 签发与解密模块
+    │   ├── auth.ts                     # JOSE JWT 签发与解密模块
     │   ├── constants.ts                # 30 条预置 AI 模型列表与系统常量
-    │   └── storage.ts                  # LocalStorage 与 IndexedDB 浏览器本地存储模块
+    │   └── storage.ts                  # LocalStorage 与 IndexedDB 本地存储模块
     └── types
         └── index.ts                    # 项目 TypeScript 类型定义文件
 ```
 
 ---
 
-## 🛠️ 技术栈说明
-
-- **前端框架**：Next.js (App Router) + React 19 + TypeScript
-- **样式与UI**：TailwindCSS + Lucide React 图标库 + Mobile-First 响应式
-- **状态管理**：React Context API (统一托管设置、模型、历史记录与登录状态)
-- **本地存储**：IndexedDB (历史记录大文件存储) + LocalStorage (用户偏好与 Auth Token)
-- **后端接口**：Next.js API Routes (无缝适配 Node.js、Vercel Serverless 及 Cloudflare Workers)
-- **认证方式**：JOSE (JWT 无状态Token) + 环境变量账号密码
-
----
-
-## 🔑 环境变量说明
-
-在根目录创建 `.env` 或 `.env.local` 文件，或在云平台上配置环境变量：
-
-| 环境变量名称 | 必填 | 默认值 | 说明 |
-| :--- | :---: | :--- | :--- |
-| `ADMIN_USERNAME` | 否 | `admin` | 生产环境管理员登录用户名 |
-| `ADMIN_PASSWORD` | 否 | `foxai123` | 生产环境管理员登录密码 (切勿硬编码) |
-| `AUTH_SECRET` | 否 | 自动密钥 | JWT 加密签发密钥 |
-| `CLOUDFLARE_API_TOKEN` | 否 | 无 | 默认 Cloudflare Workers AI API Token (也可在网页设置中配置) |
-| `CLOUDFLARE_ACCOUNT_ID` | 否 | 无 | 默认 Cloudflare Account ID (也可在网页设置中配置) |
-
----
-
-## 🚀 本地开发与运行流程
-
-### 1. 克隆代码与安装依赖
-
-```bash
-git clone https://github.com/your-username/baihu-ai-three.git
-cd baihu-ai-three
-npm install
-```
-
-### 2. 配置环境变量
-
-```bash
-cp .env.example .env.local
-```
-
-在 `.env.local` 中修改 `ADMIN_PASSWORD` 为你自定义的强密码。
-
-### 3. 启动开发服务器
-
-```bash
-npm run dev
-```
-
-在浏览器打开 `http://localhost:3000` 即可体验 **白狐AI三**。
-
----
-
 ## ☁️ 部署指南
 
-### 1. Cloudflare Pages / Workers 部署步骤
+### 1. Cloudflare Pages 部署步骤 (已零报错优化)
 
-**白狐AI三** 天生适配 Cloudflare 平台：
+**白狐AI三** 已针对 Cloudflare Pages 进行全新适配：
 
-1. **注册与登录 Cloudflare**：进入 [Cloudflare Dashboard](https://dash.cloudflare.com/)。
-2. **创建 Worker 或 Pages 项目**：
-   - 进入 **Workers & Pages** -> **Create application** -> 选择 **Pages**。
-   - 连接你的 GitHub 仓库。
-3. **构建设置 (Build Settings)**：
-   - **Framework preset**：选择 `Next.js`。
-   - **Build command**：`npx @cloudflare/next-on-pages@1` 或 `npm run build`。
-   - **Build output directory**：`.vercel/output/static`。
-4. **配置环境变量**：
-   - 在 Settings -> Environment variables 中添加：
-     - `ADMIN_USERNAME`: 管理员账号
+1. **登录 Cloudflare Dashboard**：进入 [Cloudflare 控制台](https://dash.cloudflare.com/) -> **Workers & Pages** -> **Create Application** -> 选择 **Pages** -> **Connect to Git**。
+2. **构建设置 (Build Settings)**：
+   - **Framework preset**：选择 `Next.js` 或 `None`。
+   - **Build command（构建命令）**：`npm run pages:build` 或 `npx @cloudflare/next-on-pages`
+   - **Build output directory（输出目录）**：`.vercel/output/static`
+3. **环境变量配置**：
+   - 在 Settings -> Environment variables 添加：
+     - `ADMIN_USERNAME`: 管理员账号 (默认 `admin`)
      - `ADMIN_PASSWORD`: 管理员密码
-     - `CLOUDFLARE_API_TOKEN`: 具备 Workers AI 读写权限的 Token
-     - `CLOUDFLARE_ACCOUNT_ID`: 你的 Cloudflare Account ID
-5. **部署**：点击 **Save and Deploy** 即可完成公网上线！
+     - `CLOUDFLARE_API_TOKEN`: 你的 Cloudflare API Token (可选)
+     - `CLOUDFLARE_ACCOUNT_ID`: 你的 Cloudflare Account ID (可选)
+4. 点击 **Save and Deploy**，项目即可零报错秒级发布上线！
 
 ---
 
-## ⚡ Vercel 一键部署步骤
+### 2. Vercel 一键部署步骤
 
-1. **推送代码至 GitHub** 仓库。
-2. 访问 [Vercel Dashboard](https://vercel.com/import)，点击 **Add New Project** 并导入该 GitHub 仓库。
-3. **Environment Variables（环境变量）配置**：
-   - 展开 Environment Variables。
-   - 添加 `ADMIN_USERNAME` 与 `ADMIN_PASSWORD`。
-   - （可选）添加 `CLOUDFLARE_API_TOKEN` 与 `CLOUDFLARE_ACCOUNT_ID`。
-4. 点击 **Deploy** 按钮，Vercel 将自动完成构建并在 1 分钟内提供默认域名。
+1. 访问 [Vercel Dashboard](https://vercel.com/import)，点击 **Add New Project** 导入仓库。
+2. 在 **Environment Variables** 添加：
+   - `ADMIN_USERNAME`: 管理员账号
+   - `ADMIN_PASSWORD`: 管理员密码
+3. 点击 **Deploy** 部署上线。
 
 ---
 
-## 🐳 Docker / Docker Compose 部署步骤
-
-项目已内置 Dockerfile（包含 Next.js standalone 体积优化）与 docker-compose.yml：
-
-### 方式一：使用 Docker Compose (推荐)
+### 3. Docker / Docker Compose 部署步骤
 
 ```bash
-# 启动容器
+# Docker Compose 启动
 docker-compose up -d --build
-
-# 查看运行状态与日志
-docker-compose logs -f
 ```
-
-访问 `http://your-server-ip:3000` 即可使用。
-
-### 方式二：手动 Docker 构建
-
-```bash
-# 构建镜像
-docker build -t baihu-ai-three:latest .
-
-# 运行容器
-docker run -d \
-  --name baihu-ai-three \
-  -p 3000:3000 \
-  -e ADMIN_USERNAME=admin \
-  -e ADMIN_PASSWORD=your_secure_password \
-  baihu-ai-three:latest
-```
+访问 `http://localhost:3000` 即可使用。
 
 ---
 
-## 📦 文件/压缩包部署方式
+## 💡 部署常见错误排查
 
-如果你需要以压缩包形式部署（例如上传至宝塔面板或 VPS）：
+1. **Cloudflare 提示 `Output directory "out" not found`**：
+   - 原因：Pages Dashboard 中输出目录填成了 `out`。
+   - 解决：请在 Cloudflare Pages 设置中的 Build Output Directory 填入 `.vercel/output/static`，并确保构建命令为 `npm run pages:build`。
 
-1. 将项目源码打包为 `.zip` 文件（注意排除 `node_modules` 与 `.next` 目录）。
-2. 在服务器上解压后执行：
-   ```bash
-   npm install --production
-   npm run build
-   npm start
-   ```
-3. 使用 PM2 保持进程后台常驻：
-   ```bash
-   npm install -g pm2
-   pm2 start npm --name "baihu-ai-three" -- start
-   ```
-
----
-
-## 💡 部署注意事项与常见错误排查
-
-1. **报错：未配置 Cloudflare API Token**：
-   - **排查**：如果在“文生图”中选择了带有 `@cf/` 前缀的 Cloudflare 模型，但未在环境变量或前端“设置”页面配置 Account ID 与 Token，系统将提示配置指引。
-   - **解决**：只需前往项目“设置”选项卡，输入有效的 Cloudflare Credentials，或者在模型选择器中直接选择公共/免费模型（如 `FLUX.1`）即可无缝生成。
-
-2. **登录无法通过或提示“用户名密码不正确”**：
-   - **排查**：请确认是否在环境变量中配置了 `ADMIN_USERNAME` 与 `ADMIN_PASSWORD`。
-   - **默认值**：未设置时，默认管理员账号为 `admin`，默认密码为 `foxai123`。
-
-3. **历史记录加载慢或数据丢失**：
-   - **说明**：项目将所有生成的 Base64 高清图片存放在浏览器本地的 **IndexedDB** 中。清理浏览器缓存或在无痕模式下可能导致历史记录无法长久保存。
-
-4. **Docker 容器构建极慢**：
-   - **解决**：项目采用了多阶段构建 (Multi-stage build)，依赖项单独缓存。确保服务器网络良好，或在 Dockerfile 中配置 npm 镜像源。
-
----
-
-## 📜 许可证
-
-本项目基于 [MIT License](LICENSE) 开源许可，可自由二次开发与商业部署。
+2. **Cloudflare 提示 `The following routes were not configured to run with the Edge Runtime`**：
+   - 解决：本项目所有 API 路由均已内置 `export const runtime = 'edge';`，完全兼容 Cloudflare Edge Worker。

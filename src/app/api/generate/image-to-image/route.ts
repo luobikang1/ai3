@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 
+export const runtime = 'edge';
+
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
@@ -49,13 +51,14 @@ export async function POST(req: NextRequest) {
       }
 
       // Convert input image base64 if needed
-      let rawImageBytes: Uint8Array;
+      let base64Clean = inputImage;
       if (inputImage.startsWith('data:')) {
-        const base64Str = inputImage.split(',')[1];
-        rawImageBytes = Buffer.from(base64Str, 'base64');
-      } else {
-        // Assume base64 string
-        rawImageBytes = Buffer.from(inputImage, 'base64');
+        base64Clean = inputImage.split(',')[1];
+      }
+      const binaryString = atob(base64Clean);
+      const rawImageBytes = new Uint8Array(binaryString.length);
+      for (let i = 0; i < binaryString.length; i++) {
+        rawImageBytes[i] = binaryString.charCodeAt(i);
       }
 
       const cfEndpoint = `https://api.cloudflare.com/client/v4/accounts/${cfAccountId}/ai/run/${model}`;
@@ -94,7 +97,9 @@ export async function POST(req: NextRequest) {
 
         const contentType = cfResponse.headers.get('content-type') || '';
         const arrayBuffer = await cfResponse.arrayBuffer();
-        const base64 = Buffer.from(arrayBuffer).toString('base64');
+        const base64 = btoa(
+          new Uint8Array(arrayBuffer).reduce((data, byte) => data + String.fromCharCode(byte), '')
+        );
         const mime = contentType.includes('image/jpeg') ? 'image/jpeg' : 'image/png';
         const dataUrl = `data:${mime};base64,${base64}`;
 
@@ -138,7 +143,9 @@ export async function POST(req: NextRequest) {
       }
 
       const arrayBuffer = await polResponse.arrayBuffer();
-      const base64 = Buffer.from(arrayBuffer).toString('base64');
+      const base64 = btoa(
+        new Uint8Array(arrayBuffer).reduce((data, byte) => data + String.fromCharCode(byte), '')
+      );
       const dataUrl = `data:image/jpeg;base64,${base64}`;
 
       return NextResponse.json({

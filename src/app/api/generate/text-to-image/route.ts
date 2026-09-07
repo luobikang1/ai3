@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 
+export const runtime = 'edge';
+
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
@@ -31,7 +33,6 @@ export async function POST(req: NextRequest) {
     // 1. If it's a Cloudflare Workers AI model OR Cloudflare credentials provided
     if (isCloudflareModel) {
       if (!cfApiToken || !cfAccountId) {
-        // If user picked a Cloudflare model but hasn't set credentials, give a clear instruction or fallback automatically
         return NextResponse.json(
           {
             success: false,
@@ -89,7 +90,9 @@ export async function POST(req: NextRequest) {
 
         // Standard Cloudflare AI binary image response
         const arrayBuffer = await cfResponse.arrayBuffer();
-        const base64 = Buffer.from(arrayBuffer).toString('base64');
+        const base64 = btoa(
+          new Uint8Array(arrayBuffer).reduce((data, byte) => data + String.fromCharCode(byte), '')
+        );
         const mime = contentType.includes('image/jpeg') ? 'image/jpeg' : 'image/png';
         const dataUrl = `data:${mime};base64,${base64}`;
 
@@ -133,7 +136,9 @@ export async function POST(req: NextRequest) {
       }
 
       const arrayBuffer = await polResponse.arrayBuffer();
-      const base64 = Buffer.from(arrayBuffer).toString('base64');
+      const base64 = btoa(
+        new Uint8Array(arrayBuffer).reduce((data, byte) => data + String.fromCharCode(byte), '')
+      );
       const dataUrl = `data:image/jpeg;base64,${base64}`;
 
       return NextResponse.json({
