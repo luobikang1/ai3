@@ -19,6 +19,7 @@ import {
   Database,
   Globe,
   Server,
+  Key,
 } from 'lucide-react';
 
 export const SettingsTab: React.FC = () => {
@@ -30,12 +31,18 @@ export const SettingsTab: React.FC = () => {
 
   const [cfApiToken, setCfApiToken] = useState(settings.cfApiToken || '');
   const [cfAccountId, setCfAccountId] = useState(settings.cfAccountId || '');
+
+  const [hfApiKey, setHfApiKey] = useState(settings.hfApiKey || '');
+  const [falApiKey, setFalApiKey] = useState(settings.falApiKey || '');
+  const [openaiApiKey, setOpenaiApiKey] = useState(settings.openaiApiKey || '');
+
   const [showToken, setShowToken] = useState(false);
 
   const [defaultAspectRatio, setDefaultAspectRatio] = useState(
     settings.defaultAspectRatio || '1:1'
   );
-  const [defaultSteps, setDefaultSteps] = useState(settings.defaultSteps || 20);
+  const [defaultBatchCount, setDefaultBatchCount] = useState<number>(settings.defaultBatchCount || 1);
+  const [defaultSteps, setDefaultSteps] = useState(settings.defaultSteps || 25);
   const [defaultGuidance, setDefaultGuidance] = useState(settings.defaultGuidance || 7.5);
   const [enableD1Sync, setEnableD1Sync] = useState(settings.enableD1Sync ?? true);
 
@@ -49,14 +56,18 @@ export const SettingsTab: React.FC = () => {
       sdApiKey: sdApiKey.trim(),
       cfApiToken: cfApiToken.trim(),
       cfAccountId: cfAccountId.trim(),
+      hfApiKey: hfApiKey.trim(),
+      falApiKey: falApiKey.trim(),
+      openaiApiKey: openaiApiKey.trim(),
     });
-    showToast('算力引擎与 API 配置已完美保存', 'success');
+    showToast('算力引擎与全网 API 秘钥配置已保存', 'success');
   };
 
   const handleSaveDefaults = (e: React.FormEvent) => {
     e.preventDefault();
     updateSettings({
       defaultAspectRatio,
+      defaultBatchCount,
       defaultSteps,
       defaultGuidance,
       enableD1Sync,
@@ -71,19 +82,26 @@ export const SettingsTab: React.FC = () => {
       sdApiKey: '',
       cfApiToken: '',
       cfAccountId: '',
+      hfApiKey: '',
+      falApiKey: '',
+      openaiApiKey: '',
     });
     setComputeEngine(DEFAULT_SETTINGS.computeEngine);
     setSdApiEndpoint('');
     setSdApiKey('');
     setCfApiToken('');
     setCfAccountId('');
+    setHfApiKey('');
+    setFalApiKey('');
+    setOpenaiApiKey('');
     setDefaultAspectRatio(DEFAULT_SETTINGS.defaultAspectRatio);
+    setDefaultBatchCount(DEFAULT_SETTINGS.defaultBatchCount);
     setDefaultSteps(DEFAULT_SETTINGS.defaultSteps);
     setDefaultGuidance(DEFAULT_SETTINGS.defaultGuidance);
     setEnableD1Sync(true);
     await clearHistory();
     setShowResetConfirm(false);
-    showToast('已成功恢复出厂设置（SD 出厂状态已还原）', 'success');
+    showToast('已成功恢复出厂设置（出厂默认状态已还原）', 'success');
   };
 
   return (
@@ -96,7 +114,7 @@ export const SettingsTab: React.FC = () => {
         <div>
           <h3 className="text-sm font-bold text-gray-900 dark:text-white">系统算力与基础配置</h3>
           <p className="text-[10px] text-gray-500 dark:text-gray-400">
-            以 Stable Diffusion 为默认出厂算力，支持自定义 API 节点与 D1 数据库同步
+            以 Stable Diffusion / FLUX 为标准引擎，支持 HuggingFace、Fal.ai、DALL-E 3 及 Wasmer 部署
           </p>
         </div>
       </div>
@@ -106,14 +124,14 @@ export const SettingsTab: React.FC = () => {
         <div className="flex items-center space-x-2 pb-2 border-b border-gray-100 dark:border-gray-800">
           <Cpu size={18} className="text-orange-500" />
           <h4 className="text-xs font-bold text-gray-900 dark:text-white">
-            绘图算力引擎配置 (预设: Stable Diffusion)
+            多平台算力引擎配置 (默认: Stable Diffusion / FLUX)
           </h4>
         </div>
 
         <form onSubmit={handleSaveCompute} className="space-y-4">
           <div>
             <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-2">
-              选择默认算力源
+              选择主要算力节点
             </label>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
               {COMPUTE_ENGINES.map((engine) => {
@@ -132,7 +150,7 @@ export const SettingsTab: React.FC = () => {
                       <span className="text-xs font-bold">{engine.name}</span>
                       {engine.isDefault && (
                         <span className="text-[9px] bg-orange-500 text-white px-1.5 py-0.5 rounded font-bold">
-                          出厂默认
+                          出厂预设
                         </span>
                       )}
                     </div>
@@ -145,80 +163,72 @@ export const SettingsTab: React.FC = () => {
             </div>
           </div>
 
-          {/* Conditional Input for Stable Diffusion or Custom Endpoint */}
-          {(computeEngine === 'stable-diffusion' || computeEngine === 'custom-api') && (
-            <div className="p-3 bg-gray-50 dark:bg-gray-800/60 rounded-xl space-y-3 border border-gray-200 dark:border-gray-700/60">
-              <div className="flex items-center space-x-1.5 text-xs font-bold text-gray-800 dark:text-gray-200">
-                <Server size={14} className="text-orange-500" />
-                <span>自定义 SD / ComfyUI / OpenAI API 地址 (可选)</span>
-              </div>
-              <div>
-                <label className="block text-[11px] text-gray-600 dark:text-gray-400 mb-1">
-                  API Endpoint 完整接口 URL
-                </label>
-                <input
-                  type="text"
-                  value={sdApiEndpoint}
-                  onChange={(e) => setSdApiEndpoint(e.target.value)}
-                  placeholder="如: http://127.0.0.1:7860 或 https://api.your-sd-server.com"
-                  className="w-full px-3 py-2 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-xs text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-orange-500 min-h-[38px]"
-                />
-              </div>
-
-              <div>
-                <label className="block text-[11px] text-gray-600 dark:text-gray-400 mb-1">
-                  API Access Token / Key (若有)
-                </label>
-                <input
-                  type="password"
-                  value={sdApiKey}
-                  onChange={(e) => setSdApiKey(e.target.value)}
-                  placeholder="接口密钥 (留空则不使用鉴权)"
-                  className="w-full px-3 py-2 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-xs text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-orange-500 min-h-[38px]"
-                />
-              </div>
-            </div>
-          )}
-
-          {/* Cloudflare Credentials Inputs */}
+          {/* External Compute API Keys Inputs */}
           <div className="p-3 bg-gray-50 dark:bg-gray-800/60 rounded-xl space-y-3 border border-gray-200 dark:border-gray-700/60">
             <div className="flex items-center space-x-1.5 text-xs font-bold text-gray-800 dark:text-gray-200">
-              <Cloud size={14} className="text-amber-500" />
-              <span>Cloudflare Workers AI 账号凭证</span>
+              <Key size={14} className="text-amber-500" />
+              <span>第三方算力 API Key 与 Endpoint 密钥</span>
             </div>
+
             <div>
               <label className="block text-[11px] text-gray-600 dark:text-gray-400 mb-1">
-                Cloudflare Account ID
+                HuggingFace Inference Token (开源无限制)
               </label>
               <input
-                type="text"
-                value={cfAccountId}
-                onChange={(e) => setCfAccountId(e.target.value)}
-                placeholder="请输入 32 位的 Account ID"
+                type="password"
+                value={hfApiKey}
+                onChange={(e) => setHfApiKey(e.target.value)}
+                placeholder="hf_..."
                 className="w-full px-3 py-2 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-xs text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-orange-500 min-h-[38px]"
               />
             </div>
 
             <div>
               <label className="block text-[11px] text-gray-600 dark:text-gray-400 mb-1">
-                Cloudflare API Token
+                Fal.ai Key / OpenAI Key (DALL-E 3 / Vercel AI SDK)
               </label>
-              <div className="relative">
+              <input
+                type="password"
+                value={falApiKey}
+                onChange={(e) => setFalApiKey(e.target.value)}
+                placeholder="Fal.ai Key 或 OpenAI Key"
+                className="w-full px-3 py-2 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-xs text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-orange-500 min-h-[38px]"
+              />
+            </div>
+
+            <div>
+              <label className="block text-[11px] text-gray-600 dark:text-gray-400 mb-1">
+                Cloudflare Account ID & API Token
+              </label>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                 <input
-                  type={showToken ? 'text' : 'password'}
+                  type="text"
+                  value={cfAccountId}
+                  onChange={(e) => setCfAccountId(e.target.value)}
+                  placeholder="32位 Account ID"
+                  className="w-full px-3 py-2 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-xs text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-orange-500 min-h-[38px]"
+                />
+                <input
+                  type="password"
                   value={cfApiToken}
                   onChange={(e) => setCfApiToken(e.target.value)}
-                  placeholder="具有 Workers AI 权限的 Token"
-                  className="w-full pl-3 pr-9 py-2 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-xs text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-orange-500 min-h-[38px]"
+                  placeholder="Workers AI Token"
+                  className="w-full px-3 py-2 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-xs text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-orange-500 min-h-[38px]"
                 />
-                <button
-                  type="button"
-                  onClick={() => setShowToken(!showToken)}
-                  className="absolute right-2.5 top-2.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
-                >
-                  {showToken ? <EyeOff size={15} /> : <Eye size={15} />}
-                </button>
               </div>
+            </div>
+
+            <div>
+              <label className="block text-[11px] text-gray-600 dark:text-gray-400 mb-1">
+                私有 SD WebUI / Wasmer WebAssembly 接口节点
+              </label>
+              <input
+                type="text"
+                value={sdApiEndpoint}
+                onChange={(e) => setSdApiEndpoint(e.target.value)}
+                placeholder="例如: http://127.0.0.1:7860 或 Wasmer 服务端点"
+                className="w-full px-3 py-2 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-xs text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-orange-500 min-h-[38px]"
+              />
             </div>
           </div>
 
@@ -292,6 +302,28 @@ export const SettingsTab: React.FC = () => {
           </div>
 
           <div>
+            <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+              默认单次生成张数
+            </label>
+            <div className="grid grid-cols-3 gap-2">
+              {[1, 2, 4].map((num) => (
+                <button
+                  key={num}
+                  type="button"
+                  onClick={() => setDefaultBatchCount(num)}
+                  className={`py-1.5 text-xs font-bold rounded-lg border ${
+                    defaultBatchCount === num
+                      ? 'bg-orange-500 text-white border-orange-500'
+                      : 'bg-gray-50 dark:bg-gray-800 text-gray-700 dark:text-gray-300 border-gray-200 dark:border-gray-700'
+                  }`}
+                >
+                  生成 {num} 张
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div>
             <div className="flex justify-between text-xs text-gray-700 dark:text-gray-300 mb-1">
               <span>默认采样步数: {defaultSteps}</span>
             </div>
@@ -301,21 +333,6 @@ export const SettingsTab: React.FC = () => {
               max="40"
               value={defaultSteps}
               onChange={(e) => setDefaultSteps(Number(e.target.value))}
-              className="w-full accent-orange-500"
-            />
-          </div>
-
-          <div>
-            <div className="flex justify-between text-xs text-gray-700 dark:text-gray-300 mb-1">
-              <span>默认引导系数 (CFG): {defaultGuidance}</span>
-            </div>
-            <input
-              type="range"
-              min="1"
-              max="15"
-              step="0.5"
-              value={defaultGuidance}
-              onChange={(e) => setDefaultGuidance(Number(e.target.value))}
               className="w-full accent-orange-500"
             />
           </div>
@@ -357,7 +374,7 @@ export const SettingsTab: React.FC = () => {
             className="w-full py-2.5 bg-red-50 dark:bg-red-950/30 text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/40 rounded-xl text-xs font-medium transition-colors flex items-center justify-center space-x-1.5 min-h-[42px]"
           >
             <RotateCcw size={15} />
-            <span>恢复出厂设置 (还原 SD 默认引擎与清空历史)</span>
+            <span>恢复出厂设置 (还原 FLUX/SD 默认引擎与清空历史)</span>
           </button>
         </div>
       </div>
@@ -372,7 +389,7 @@ export const SettingsTab: React.FC = () => {
             <div>
               <h3 className="text-base font-bold text-gray-900 dark:text-white">确认恢复出厂设置？</h3>
               <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                将还原默认 Stable Diffusion 算力源、重置各项参数为默认值并清空所有绘图历史。
+                将还原默认出厂算力引擎与预设参数、重置 API Key 并清空所有绘图历史。
               </p>
             </div>
             <div className="flex space-x-2 pt-2">

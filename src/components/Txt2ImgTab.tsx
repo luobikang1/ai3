@@ -2,8 +2,8 @@
 
 import React, { useState } from 'react';
 import { useApp } from '@/context/AppContext';
-import { ASPECT_RATIOS } from '@/lib/constants';
-import { Sparkles, Sliders, ChevronDown, Wand2, Download, AlertCircle, Cpu } from 'lucide-react';
+import { ASPECT_RATIOS, enhancePromptText } from '@/lib/constants';
+import { Sparkles, Sliders, ChevronDown, Wand2, Download, AlertCircle, Cpu, Layers, Copy } from 'lucide-react';
 import { GeneratedImage } from '@/types';
 
 interface Txt2ImgTabProps {
@@ -16,6 +16,7 @@ export const Txt2ImgTab: React.FC<Txt2ImgTabProps> = ({ onOpenModelModal }) => {
   const [prompt, setPrompt] = useState('');
   const [negativePrompt, setNegativePrompt] = useState('');
   const [aspectRatio, setAspectRatio] = useState(settings.defaultAspectRatio || '1:1');
+  const [batchCount, setBatchCount] = useState<number>(settings.defaultBatchCount || 1);
   const [steps, setSteps] = useState(settings.defaultSteps || 20);
   const [guidance, setGuidance] = useState(settings.defaultGuidance || 7.5);
   const [showAdvanced, setShowAdvanced] = useState(false);
@@ -24,6 +25,16 @@ export const Txt2ImgTab: React.FC<Txt2ImgTabProps> = ({ onOpenModelModal }) => {
   const [errorText, setErrorText] = useState('');
 
   const currentRatioObj = ASPECT_RATIOS.find((r) => r.value === aspectRatio) || ASPECT_RATIOS[0];
+
+  const handleEnhancePrompt = () => {
+    if (!prompt.trim()) {
+      showToast('请先输入提示词', 'info');
+      return;
+    }
+    const enhanced = enhancePromptText(prompt);
+    setPrompt(enhanced);
+    showToast('已完成提示词品质魔改与优化！', 'success');
+  };
 
   const handleGenerate = async () => {
     if (!prompt.trim()) {
@@ -47,21 +58,29 @@ export const Txt2ImgTab: React.FC<Txt2ImgTabProps> = ({ onOpenModelModal }) => {
           model: selectedModel.id,
           steps,
           guidance,
+          batchCount,
           computeEngine: settings.computeEngine || 'stable-diffusion',
           sdApiEndpoint: settings.sdApiEndpoint,
           sdApiKey: settings.sdApiKey,
           cfApiToken: settings.cfApiToken,
           cfAccountId: settings.cfAccountId,
+          hfApiKey: settings.hfApiKey,
+          falApiKey: settings.falApiKey,
+          openaiApiKey: settings.openaiApiKey,
           customEndpoint: settings.customEndpoint,
         }),
       });
 
       const data = await res.json();
 
-      if (data.success && data.data?.imageUrl) {
+      if (data.success && (data.data?.imageUrl || (data.data?.imageUrls && data.data.imageUrls.length > 0))) {
+        const primaryUrl = data.data.imageUrl || data.data.imageUrls[0];
+        const allUrls = data.data.imageUrls || [primaryUrl];
+
         const newItem: GeneratedImage = {
           id: `img_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
-          imageUrl: data.data.imageUrl,
+          imageUrl: primaryUrl,
+          imageUrls: allUrls,
           params: {
             prompt,
             negativePrompt,
@@ -71,6 +90,7 @@ export const Txt2ImgTab: React.FC<Txt2ImgTabProps> = ({ onOpenModelModal }) => {
             model: selectedModel.id,
             steps,
             guidance,
+            batchCount,
             computeEngineId: settings.computeEngine || 'stable-diffusion',
           },
           createdAt: Date.now(),
@@ -79,7 +99,7 @@ export const Txt2ImgTab: React.FC<Txt2ImgTabProps> = ({ onOpenModelModal }) => {
 
         setGeneratedImg(newItem);
         await addHistoryItem(newItem);
-        showToast('图片生成成功！', 'success');
+        showToast(`成功生成 ${allUrls.length} 张高质量图片！`, 'success');
       } else {
         const msg = data.error || '图像生成失败，外部算力未响应';
         setErrorText(msg);
@@ -94,10 +114,11 @@ export const Txt2ImgTab: React.FC<Txt2ImgTabProps> = ({ onOpenModelModal }) => {
     }
   };
 
-  const handleDownload = () => {
-    if (!generatedImg) return;
+  const handleDownload = (urlToDownload?: string) => {
+    const targetUrl = urlToDownload || generatedImg?.imageUrl;
+    if (!targetUrl) return;
     const a = document.createElement('a');
-    a.href = generatedImg.imageUrl;
+    a.href = targetUrl;
     a.download = `fox-ai-${Date.now()}.png`;
     document.body.appendChild(a);
     a.click();
@@ -119,7 +140,7 @@ export const Txt2ImgTab: React.FC<Txt2ImgTabProps> = ({ onOpenModelModal }) => {
             <div className="text-xs text-orange-600 dark:text-orange-400 font-medium flex items-center space-x-1">
               <Cpu size={12} />
               <span>
-                算力: {settings.computeEngine === 'cloudflare-ai' ? 'Cloudflare Workers AI' : 'Stable Diffusion (默认引擎)'}
+                引擎: {settings.computeEngine === 'cloudflare-ai' ? 'Cloudflare Workers AI' : settings.computeEngine === 'huggingface' ? 'HuggingFace 无限制' : 'Stable Diffusion 核心'}
               </span>
             </div>
             <div className="text-sm font-semibold text-gray-900 dark:text-white truncate">
@@ -134,12 +155,21 @@ export const Txt2ImgTab: React.FC<Txt2ImgTabProps> = ({ onOpenModelModal }) => {
 
       {/* Main Form */}
       <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl p-4 shadow-sm space-y-4">
-        {/* Prompt Input */}
+        {/* Prompt Input with Enhance Button */}
         <div>
-          <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1.5 flex items-center justify-between">
-            <span>正向提示词 (Prompt)</span>
-            <span className="text-[10px] font-normal text-gray-400">支持中文/英文描述</span>
-          </label>
+          <div className="flex items-center justify-between mb-1.5">
+            <label className="text-xs font-semibold text-gray-700 dark:text-gray-300">
+              正向提示词 (Prompt)
+            </label>
+            <button
+              type="button"
+              onClick={handleEnhancePrompt}
+              className="flex items-center space-x-1 px-2.5 py-1 bg-orange-50 dark:bg-orange-950/50 border border-orange-200 dark:border-orange-800/60 text-orange-600 dark:text-orange-400 rounded-lg text-[11px] font-medium hover:bg-orange-100 transition-colors"
+            >
+              <Sparkles size={12} />
+              <span>提示词品质优化</span>
+            </button>
+          </div>
           <textarea
             value={prompt}
             onChange={(e) => setPrompt(e.target.value)}
@@ -163,30 +193,55 @@ export const Txt2ImgTab: React.FC<Txt2ImgTabProps> = ({ onOpenModelModal }) => {
           />
         </div>
 
-        {/* Aspect Ratio Buttons */}
-        <div>
-          <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-2">
-            画面尺寸与比例
-          </label>
-          <div className="grid grid-cols-5 gap-1.5">
-            {ASPECT_RATIOS.map((item) => {
-              const isSelected = aspectRatio === item.value;
-              return (
+        {/* Aspect Ratio & Batch Count Option */}
+        <div className="space-y-3">
+          <div>
+            <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-2">
+              画面尺寸与比例
+            </label>
+            <div className="grid grid-cols-5 gap-1.5">
+              {ASPECT_RATIOS.map((item) => {
+                const isSelected = aspectRatio === item.value;
+                return (
+                  <button
+                    key={item.value}
+                    type="button"
+                    onClick={() => setAspectRatio(item.value)}
+                    className={`flex flex-col items-center justify-center py-2 px-1 rounded-xl text-xs font-medium border transition-all ${
+                      isSelected
+                        ? 'bg-orange-500 text-white border-orange-500 shadow-sm'
+                        : 'bg-gray-50 dark:bg-gray-800/60 text-gray-700 dark:text-gray-300 border-gray-200 dark:border-gray-700 hover:border-gray-300'
+                    }`}
+                  >
+                    <span className="font-bold text-[11px]">{item.value}</span>
+                    <span className="text-[9px] opacity-80 scale-90">{item.label.split(' ')[1] || ''}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1.5">
+              单次生成图片张数
+            </label>
+            <div className="grid grid-cols-3 gap-2">
+              {[1, 2, 4].map((num) => (
                 <button
-                  key={item.value}
+                  key={num}
                   type="button"
-                  onClick={() => setAspectRatio(item.value)}
-                  className={`flex flex-col items-center justify-center py-2 px-1 rounded-xl text-xs font-medium border transition-all ${
-                    isSelected
+                  onClick={() => setBatchCount(num)}
+                  className={`py-2 text-xs font-bold rounded-xl border flex items-center justify-center space-x-1 transition-all ${
+                    batchCount === num
                       ? 'bg-orange-500 text-white border-orange-500 shadow-sm'
-                      : 'bg-gray-50 dark:bg-gray-800/60 text-gray-700 dark:text-gray-300 border-gray-200 dark:border-gray-700 hover:border-gray-300'
+                      : 'bg-gray-50 dark:bg-gray-800 text-gray-700 dark:text-gray-300 border-gray-200 dark:border-gray-700'
                   }`}
                 >
-                  <span className="font-bold text-[11px]">{item.value}</span>
-                  <span className="text-[9px] opacity-80 scale-90">{item.label.split(' ')[1] || ''}</span>
+                  <Layers size={14} />
+                  <span>生成 {num} 张</span>
                 </button>
-              );
-            })}
+              ))}
+            </div>
           </div>
         </div>
 
@@ -252,12 +307,12 @@ export const Txt2ImgTab: React.FC<Txt2ImgTabProps> = ({ onOpenModelModal }) => {
           {isGenerating ? (
             <>
               <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-              <span>白狐AI 正在构思作画中...</span>
+              <span>白狐AI 正在渲染 {batchCount} 张画作中...</span>
             </>
           ) : (
             <>
               <Wand2 size={18} />
-              <span>开始生成图像</span>
+              <span>开始生成 {batchCount} 张图像</span>
             </>
           )}
         </button>
@@ -268,36 +323,49 @@ export const Txt2ImgTab: React.FC<Txt2ImgTabProps> = ({ onOpenModelModal }) => {
         <div className="p-4 bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-900/50 rounded-2xl text-xs text-red-600 dark:text-red-400 flex items-start space-x-2.5">
           <AlertCircle size={18} className="shrink-0 mt-0.5 text-red-500" />
           <div>
-            <div className="font-semibold text-sm mb-1">生成出错 / 功能异常提示</div>
+            <div className="font-semibold text-sm mb-1">生成出错提示</div>
             <p className="leading-relaxed">{errorText}</p>
           </div>
         </div>
       )}
 
-      {/* Preview Area */}
+      {/* Preview Area Grid */}
       {generatedImg && (
         <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl p-4 shadow-sm space-y-3">
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold text-gray-800 dark:text-gray-200 flex items-center space-x-1">
               <Sparkles size={14} className="text-orange-500" />
-              <span>最新生成结果</span>
+              <span>最新生成结果 ({generatedImg.imageUrls?.length || 1} 张)</span>
             </span>
-            <button
-              onClick={handleDownload}
-              className="flex items-center space-x-1 px-3 py-1.5 bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-200 rounded-lg text-xs font-medium transition-colors"
-            >
-              <Download size={13} />
-              <span>下载图片</span>
-            </button>
           </div>
 
-          <div className="relative rounded-xl overflow-hidden bg-gray-950 flex items-center justify-center min-h-[250px] border border-gray-100 dark:border-gray-800">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={generatedImg.imageUrl}
-              alt={generatedImg.params.prompt}
-              className="w-full h-auto max-h-[500px] object-contain rounded-xl"
-            />
+          <div
+            className={`grid gap-3 ${
+              (generatedImg.imageUrls?.length || 1) > 1
+                ? 'grid-cols-1 sm:grid-cols-2'
+                : 'grid-cols-1'
+            }`}
+          >
+            {(generatedImg.imageUrls || [generatedImg.imageUrl]).map((imgUrl, index) => (
+              <div
+                key={index}
+                className="relative rounded-xl overflow-hidden bg-gray-950 border border-gray-100 dark:border-gray-800 group"
+              >
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={imgUrl}
+                  alt={`${generatedImg.params.prompt} - ${index + 1}`}
+                  className="w-full h-auto max-h-[450px] object-contain rounded-xl"
+                />
+                <button
+                  onClick={() => handleDownload(imgUrl)}
+                  className="absolute bottom-2 right-2 p-2 bg-black/70 hover:bg-orange-600 text-white rounded-lg text-xs font-medium backdrop-blur-sm transition-colors flex items-center space-x-1 shadow-md"
+                >
+                  <Download size={13} />
+                  <span>下载</span>
+                </button>
+              </div>
+            ))}
           </div>
 
           <div className="bg-gray-50 dark:bg-gray-800/50 p-3 rounded-xl text-xs text-gray-600 dark:text-gray-400 space-y-1">
