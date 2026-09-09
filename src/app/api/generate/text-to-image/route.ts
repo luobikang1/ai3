@@ -25,6 +25,7 @@ export async function POST(req: NextRequest) {
       width = 1024,
       height = 1024,
       model = 'flux',
+      sampler,
       steps = 20,
       guidance = 7.5,
       seed,
@@ -36,7 +37,6 @@ export async function POST(req: NextRequest) {
       cfAccountId: clientCfAccount,
       hfApiKey: clientHfKey,
       falApiKey: clientFalKey,
-      openaiApiKey: clientOpenAiKey,
       customEndpoint,
       enhancePrompt = false,
     } = body;
@@ -109,7 +109,7 @@ export async function POST(req: NextRequest) {
       }
 
       // 2. HuggingFace Inference API Engine
-      if (computeEngine === 'huggingface' || model.includes('/')) {
+      if (computeEngine === 'huggingface') {
         const hfModelPath = model.includes('/') ? model : 'black-forest-labs/FLUX.1-schnell';
         const hfEndpoint = `https://api-inference.huggingface.co/models/${hfModelPath}`;
 
@@ -193,6 +193,7 @@ export async function POST(req: NextRequest) {
             body: JSON.stringify({
               prompt: prompt.trim(),
               negative_prompt: negativePrompt ? negativePrompt.trim() : '',
+              sampler_name: sampler || 'Euler a',
               width: Number(width) || 1024,
               height: Number(height) || 1024,
               steps: Number(steps) || 20,

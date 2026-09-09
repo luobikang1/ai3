@@ -199,8 +199,25 @@ export async function getHistoryItems(): Promise<GeneratedImage[]> {
     const data = await res.json();
     if (data.success && Array.isArray(data.data) && data.data.length > 0) {
       const mergedMap = new Map<string, GeneratedImage>();
-      localItems.forEach((item) => mergedMap.set(item.id, item));
-      data.data.forEach((item: GeneratedImage) => mergedMap.set(item.id, item));
+
+      // 1. Add remote D1 items first
+      data.data.forEach((item: GeneratedImage) => {
+        mergedMap.set(item.id, item);
+      });
+
+      // 2. Add/Overwrite with local items if local has valid image Data URL
+      localItems.forEach((localItem) => {
+        const remoteItem = mergedMap.get(localItem.id);
+        if (
+          !remoteItem ||
+          !remoteItem.imageUrl ||
+          remoteItem.imageUrl.includes('[IndexedDB_Local_Full_Res]') ||
+          (localItem.imageUrl && localItem.imageUrl.startsWith('data:image/'))
+        ) {
+          mergedMap.set(localItem.id, localItem);
+        }
+      });
+
       const mergedList = Array.from(mergedMap.values());
       mergedList.sort((a, b) => b.createdAt - a.createdAt);
       return mergedList;
