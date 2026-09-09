@@ -2,6 +2,19 @@ import { NextRequest, NextResponse } from 'next/server';
 
 export const runtime = 'edge';
 
+function arrayBufferToBase64(buffer: ArrayBuffer): string {
+  if (typeof Buffer !== 'undefined') {
+    return Buffer.from(buffer).toString('base64');
+  }
+  let binary = '';
+  const bytes = new Uint8Array(buffer);
+  const len = bytes.byteLength;
+  for (let i = 0; i < len; i++) {
+    binary += String.fromCharCode(bytes[i]);
+  }
+  return btoa(binary);
+}
+
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
@@ -102,9 +115,7 @@ export async function POST(req: NextRequest) {
 
         const contentType = cfResponse.headers.get('content-type') || '';
         const arrayBuffer = await cfResponse.arrayBuffer();
-        const base64 = btoa(
-          new Uint8Array(arrayBuffer).reduce((data, byte) => data + String.fromCharCode(byte), '')
-        );
+        const base64 = arrayBufferToBase64(arrayBuffer);
         const mime = contentType.includes('image/jpeg') ? 'image/jpeg' : 'image/png';
         const dataUrl = `data:${mime};base64,${base64}`;
 
@@ -190,9 +201,7 @@ export async function POST(req: NextRequest) {
       }
 
       const arrayBuffer = await polResponse.arrayBuffer();
-      const base64 = btoa(
-        new Uint8Array(arrayBuffer).reduce((data, byte) => data + String.fromCharCode(byte), '')
-      );
+      const base64 = arrayBufferToBase64(arrayBuffer);
       const dataUrl = `data:image/jpeg;base64,${base64}`;
 
       return NextResponse.json({

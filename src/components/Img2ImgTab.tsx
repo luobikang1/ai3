@@ -2,7 +2,7 @@
 
 import React, { useState, useRef } from 'react';
 import { useApp } from '@/context/AppContext';
-import { ASPECT_RATIOS } from '@/lib/constants';
+import { ASPECT_RATIOS, SAMPLING_METHODS } from '@/lib/constants';
 import { Upload, X, Wand2, Download, AlertCircle, Image as ImageIcon, Sliders } from 'lucide-react';
 import { GeneratedImage } from '@/types';
 
@@ -18,6 +18,7 @@ export const Img2ImgTab: React.FC<Img2ImgTabProps> = ({ onOpenModelModal }) => {
   const [negativePrompt, setNegativePrompt] = useState('');
   const [inputImage, setInputImage] = useState<string | null>(null);
   const [strength, setStrength] = useState(0.7);
+  const [sampler, setSampler] = useState<string>(settings.defaultSampler || 'Euler a');
   const [aspectRatio, setAspectRatio] = useState(settings.defaultAspectRatio || '1:1');
   const [isGenerating, setIsGenerating] = useState(false);
   const [generatedImg, setGeneratedImg] = useState<GeneratedImage | null>(null);
@@ -84,6 +85,7 @@ export const Img2ImgTab: React.FC<Img2ImgTabProps> = ({ onOpenModelModal }) => {
           height: currentRatioObj.height,
           aspectRatio,
           model: selectedModel.id,
+          sampler,
           cfApiToken: settings.cfApiToken,
           cfAccountId: settings.cfAccountId,
         }),
@@ -104,6 +106,7 @@ export const Img2ImgTab: React.FC<Img2ImgTabProps> = ({ onOpenModelModal }) => {
             height: currentRatioObj.height,
             aspectRatio,
             model: selectedModel.id,
+            sampler,
           },
           createdAt: Date.now(),
           modelName: selectedModel.translatedName || selectedModel.name,
@@ -226,6 +229,24 @@ export const Img2ImgTab: React.FC<Img2ImgTabProps> = ({ onOpenModelModal }) => {
             onChange={(e) => setStrength(Number(e.target.value))}
             className="w-full accent-orange-500"
           />
+        </div>
+
+        {/* Sampling Method Selector */}
+        <div>
+          <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1.5">
+            选择采样方法 (Sampler)
+          </label>
+          <select
+            value={sampler}
+            onChange={(e) => setSampler(e.target.value)}
+            className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-800/80 border border-gray-200 dark:border-gray-700 rounded-xl text-xs text-gray-900 dark:text-white focus:ring-2 focus:ring-orange-500 focus:outline-none transition-all min-h-[40px]"
+          >
+            {SAMPLING_METHODS.map((method) => (
+              <option key={method.id} value={method.id}>
+                {method.name}
+              </option>
+            ))}
+          </select>
         </div>
 
         {/* Prompt Input */}

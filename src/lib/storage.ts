@@ -4,6 +4,8 @@ import { DEFAULT_SETTINGS } from './constants';
 const SETTINGS_KEY = 'fox_ai_settings';
 const AUTH_TOKEN_KEY = 'fox_ai_auth_token';
 const AUTH_USER_KEY = 'fox_ai_auth_user';
+const LOGIN_BG_KEY = 'fox_ai_login_bg';
+const USER_CREDS_KEY = 'fox_ai_user_creds';
 const FAVORITE_MODELS_KEY = 'fox_ai_fav_models';
 const DB_NAME = 'FoxAI_DB';
 const STORE_NAME = 'history';
@@ -31,6 +33,60 @@ export function saveStoredSettings(settings: Partial<UserSettings>): UserSetting
     console.error('Failed to save settings', e);
   }
   return updated;
+}
+
+// Custom Login Gate Background Image
+export function getStoredLoginBg(): string | null {
+  if (typeof window === 'undefined') return null;
+  return localStorage.getItem(LOGIN_BG_KEY);
+}
+
+export function setStoredLoginBg(bgUrl: string | null): void {
+  if (typeof window === 'undefined') return;
+  if (bgUrl) {
+    localStorage.setItem(LOGIN_BG_KEY, bgUrl);
+  } else {
+    localStorage.removeItem(LOGIN_BG_KEY);
+  }
+}
+
+// Local User Account & Password Credentials
+export interface StoredUserCreds {
+  [username: string]: string; // username -> password
+}
+
+export function getStoredUserCreds(): StoredUserCreds {
+  if (typeof window === 'undefined') return {};
+  try {
+    const raw = localStorage.getItem(USER_CREDS_KEY);
+    return raw ? JSON.parse(raw) : {};
+  } catch {
+    return {};
+  }
+}
+
+export function saveUserCreds(username: string, password: string): void {
+  if (typeof window === 'undefined') return;
+  const creds = getStoredUserCreds();
+  creds[username.trim()] = password.trim();
+  try {
+    localStorage.setItem(USER_CREDS_KEY, JSON.stringify(creds));
+  } catch (e) {
+    console.error('Failed to save user credentials', e);
+  }
+}
+
+export function updateStoredUserAccount(oldUser: string, newUser: string, newPassword: string): void {
+  if (typeof window === 'undefined') return;
+  const creds = getStoredUserCreds();
+  delete creds[oldUser.trim()];
+  creds[newUser.trim()] = newPassword.trim();
+  try {
+    localStorage.setItem(USER_CREDS_KEY, JSON.stringify(creds));
+    localStorage.setItem(AUTH_USER_KEY, newUser.trim());
+  } catch (e) {
+    console.error('Failed to update account', e);
+  }
 }
 
 // Auth state in LocalStorage
@@ -101,17 +157,15 @@ function openDB(): Promise<IDBDatabase> {
 }
 
 export async function saveHistoryItem(item: GeneratedImage): Promise<void> {
-  // 1. IndexedDB Local Store
   try {
     const db = await openDB();
     const tx = db.transaction(STORE_NAME, 'readwrite');
     const store = tx.objectStore(STORE_NAME);
     store.put(item);
   } catch (e) {
-    console.error('IndexedDB save failed, fallback to LocalStorage', e);
+    console.error('IndexedDB save failed', e);
   }
 
-  // 2. D1 Sync (if available)
   try {
     fetch('/api/history', {
       method: 'POST',
@@ -140,7 +194,6 @@ export async function getHistoryItems(): Promise<GeneratedImage[]> {
     localItems = [];
   }
 
-  // Try D1 Sync fetch
   try {
     const res = await fetch('/api/history');
     const data = await res.json();

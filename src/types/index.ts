@@ -31,6 +31,7 @@ export interface GenerationParams {
   height: number;
   aspectRatio: string; // '1:1' | '16:9' | '9:16' | '4:3' | '3:4'
   model: string;
+  sampler?: string; // 'Euler a' | 'DPM++ 2M Karras' | 'DPM++ SDE Karras' | 'DDIM' | 'LCM' | 'UniPC'
   steps?: number;
   guidance?: number;
   strength?: number; // for img2img
@@ -39,6 +40,7 @@ export interface GenerationParams {
   inputImage?: string; // base64 or URL for img2img
   computeEngineId?: string;
   enhancePrompt?: boolean;
+  stylePreset?: string;
 }
 
 export interface GeneratedImage {
@@ -48,6 +50,12 @@ export interface GeneratedImage {
   params: GenerationParams;
   createdAt: number;
   modelName: string;
+}
+
+export interface UserAccount {
+  username: string;
+  passwordHash?: string;
+  customBgImage?: string;
 }
 
 export interface UserSettings {
@@ -62,6 +70,7 @@ export interface UserSettings {
   customEndpoint?: string;
   customModels?: AIModel[];
   defaultModel: string;
+  defaultSampler: string;
   defaultAspectRatio: string;
   defaultBatchCount: number;
   defaultSteps: number;
@@ -70,6 +79,7 @@ export interface UserSettings {
   historyLimit: number;
   enableD1Sync?: boolean;
   autoEnhancePrompt?: boolean;
+  loginBgImage?: string;
 }
 
 export interface AuthState {

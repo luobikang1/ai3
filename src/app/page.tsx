@@ -19,6 +19,11 @@ function MainApp() {
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [isModelModalOpen, setIsModelModalOpen] = useState(false);
 
+  // Cross-tab interaction: Use generated image in Img2Img tab
+  const handleSwitchToImg2ImgWithRef = (imageUrl: string) => {
+    setActiveTab('img2img');
+  };
+
   // Require auth to access main UI
   if (!auth.isLoggedIn) {
     return <LoginGateScreen />;
@@ -31,7 +36,10 @@ function MainApp() {
 
       <main className="flex-1 max-w-4xl w-full mx-auto p-3 sm:p-4 md:p-6">
         {activeTab === 'txt2img' && (
-          <Txt2ImgTab onOpenModelModal={() => setIsModelModalOpen(true)} />
+          <Txt2ImgTab
+            onOpenModelModal={() => setIsModelModalOpen(true)}
+            onSwitchToImg2ImgWithRef={handleSwitchToImg2ImgWithRef}
+          />
         )}
         {activeTab === 'img2img' && (
           <Img2ImgTab onOpenModelModal={() => setIsModelModalOpen(true)} />

@@ -3,6 +3,19 @@ import { enhancePromptText } from '@/lib/constants';
 
 export const runtime = 'edge';
 
+function arrayBufferToBase64(buffer: ArrayBuffer): string {
+  if (typeof Buffer !== 'undefined') {
+    return Buffer.from(buffer).toString('base64');
+  }
+  let binary = '';
+  const bytes = new Uint8Array(buffer);
+  const len = bytes.byteLength;
+  for (let i = 0; i < len; i++) {
+    binary += String.fromCharCode(bytes[i]);
+  }
+  return btoa(binary);
+}
+
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
@@ -46,7 +59,6 @@ export async function POST(req: NextRequest) {
     const cfAccountId = clientCfAccount || process.env.CLOUDFLARE_ACCOUNT_ID;
     const hfApiKey = clientHfKey || process.env.HUGGINGFACE_API_KEY;
     const falApiKey = clientFalKey || process.env.FAL_KEY;
-    const openaiApiKey = clientOpenAiKey || process.env.OPENAI_API_KEY;
 
     // Helper: generate single image with given seed
     const generateSingleImage = async (currentSeed: number): Promise<string | null> => {
@@ -91,9 +103,7 @@ export async function POST(req: NextRequest) {
         }
 
         const arrayBuffer = await cfResponse.arrayBuffer();
-        const base64 = btoa(
-          new Uint8Array(arrayBuffer).reduce((data, byte) => data + String.fromCharCode(byte), '')
-        );
+        const base64 = arrayBufferToBase64(arrayBuffer);
         const mime = contentType.includes('image/jpeg') ? 'image/jpeg' : 'image/png';
         return `data:${mime};base64,${base64}`;
       }
@@ -128,9 +138,7 @@ export async function POST(req: NextRequest) {
           const contentType = hfResponse.headers.get('content-type') || '';
           if (contentType.includes('image/')) {
             const arrayBuffer = await hfResponse.arrayBuffer();
-            const base64 = btoa(
-              new Uint8Array(arrayBuffer).reduce((data, byte) => data + String.fromCharCode(byte), '')
-            );
+            const base64 = arrayBufferToBase64(arrayBuffer);
             return `data:${contentType};base64,${base64}`;
           }
         }
@@ -221,9 +229,7 @@ export async function POST(req: NextRequest) {
       }
 
       const arrayBuffer = await polResponse.arrayBuffer();
-      const base64 = btoa(
-        new Uint8Array(arrayBuffer).reduce((data, byte) => data + String.fromCharCode(byte), '')
-      );
+      const base64 = arrayBufferToBase64(arrayBuffer);
       return `data:image/jpeg;base64,${base64}`;
     };
 

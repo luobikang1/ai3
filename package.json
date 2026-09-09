@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build && (mkdir -p out && cp -r .vercel/output/static/* out/ 2>/dev/null || true)",
+    "build": "next build",
     "pages:build": "npx @cloudflare/next-on-pages && (mkdir -p out && cp -r .vercel/output/static/* out/ 2>/dev/null || true)",
     "start": "next start",
     "lint": "eslint"

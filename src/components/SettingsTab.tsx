@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import { useApp } from '@/context/AppContext';
 import { DEFAULT_SETTINGS, ASPECT_RATIOS, COMPUTE_ENGINES } from '@/lib/constants';
+import { getStoredUsername, updateStoredUserAccount, getStoredLoginBg, setStoredLoginBg } from '@/lib/storage';
 import {
   Settings,
   Cloud,
@@ -11,19 +12,25 @@ import {
   RotateCcw,
   Save,
   CheckCircle2,
-  HelpCircle,
-  Eye,
-  EyeOff,
   Sliders,
   Cpu,
   Database,
-  Globe,
-  Server,
   Key,
+  UserCheck,
+  Upload,
+  Trash2,
+  Lock,
 } from 'lucide-react';
 
 export const SettingsTab: React.FC = () => {
-  const { settings, updateSettings, clearHistory, showToast } = useApp();
+  const { settings, updateSettings, clearHistory, showToast, auth } = useApp();
+
+  // User Account Modification Form
+  const [newUsername, setNewUsername] = useState(auth.username || getStoredUsername() || 'admin');
+  const [newPassword, setNewPassword] = useState('');
+
+  // Login Wallpapers
+  const [loginBg, setLoginBg] = useState<string | null>(getStoredLoginBg());
 
   const [computeEngine, setComputeEngine] = useState(settings.computeEngine || 'stable-diffusion');
   const [sdApiEndpoint, setSdApiEndpoint] = useState(settings.sdApiEndpoint || '');
@@ -36,8 +43,6 @@ export const SettingsTab: React.FC = () => {
   const [falApiKey, setFalApiKey] = useState(settings.falApiKey || '');
   const [openaiApiKey, setOpenaiApiKey] = useState(settings.openaiApiKey || '');
 
-  const [showToken, setShowToken] = useState(false);
-
   const [defaultAspectRatio, setDefaultAspectRatio] = useState(
     settings.defaultAspectRatio || '1:1'
   );
@@ -47,6 +52,22 @@ export const SettingsTab: React.FC = () => {
   const [enableD1Sync, setEnableD1Sync] = useState(settings.enableD1Sync ?? true);
 
   const [showResetConfirm, setShowResetConfirm] = useState(false);
+
+  const handleUpdateAccount = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newUsername.trim() || !newPassword.trim()) {
+      showToast('请填写修改后的用户名和新密码', 'error');
+      return;
+    }
+    if (newPassword.trim().length < 4) {
+      showToast('新密码长度不能少于 4 位', 'error');
+      return;
+    }
+
+    const currentName = auth.username || 'admin';
+    updateStoredUserAccount(currentName, newUsername.trim(), newPassword.trim());
+    showToast('账号和密码已成功更新，无需数据库即可离线保存！', 'success');
+  };
 
   const handleSaveCompute = (e: React.FormEvent) => {
     e.preventDefault();
@@ -60,7 +81,7 @@ export const SettingsTab: React.FC = () => {
       falApiKey: falApiKey.trim(),
       openaiApiKey: openaiApiKey.trim(),
     });
-    showToast('算力引擎与全网 API 秘钥配置已保存', 'success');
+    showToast('算力引擎与 API 密钥配置已更新', 'success');
   };
 
   const handleSaveDefaults = (e: React.FormEvent) => {
@@ -101,7 +122,7 @@ export const SettingsTab: React.FC = () => {
     setEnableD1Sync(true);
     await clearHistory();
     setShowResetConfirm(false);
-    showToast('已成功恢复出厂设置（出厂默认状态已还原）', 'success');
+    showToast('已成功恢复出厂设置（出厂状态已还原）', 'success');
   };
 
   return (
@@ -112,11 +133,61 @@ export const SettingsTab: React.FC = () => {
           <Settings size={18} />
         </div>
         <div>
-          <h3 className="text-sm font-bold text-gray-900 dark:text-white">系统算力与基础配置</h3>
+          <h3 className="text-sm font-bold text-gray-900 dark:text-white">系统算力与账号配置</h3>
           <p className="text-[10px] text-gray-500 dark:text-gray-400">
-            以 Stable Diffusion / FLUX 为标准引擎，支持 HuggingFace、Fal.ai、DALL-E 3 及 Wasmer 部署
+            包含个人账号密码修改、登录壁纸设置及全局 AI 算力节点管理
           </p>
         </div>
+      </div>
+
+      {/* Account & Password Modification Panel */}
+      <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl p-4 shadow-sm space-y-3">
+        <div className="flex items-center space-x-2 pb-2 border-b border-gray-100 dark:border-gray-800">
+          <UserCheck size={18} className="text-orange-500" />
+          <h4 className="text-xs font-bold text-gray-900 dark:text-white">
+            账号密码安全与登录界面美化
+          </h4>
+        </div>
+
+        <form onSubmit={handleUpdateAccount} className="space-y-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            <div>
+              <label className="block text-[11px] font-semibold text-gray-700 dark:text-gray-300 mb-1">
+                修改用户名
+              </label>
+              <input
+                type="text"
+                value={newUsername}
+                onChange={(e) => setNewUsername(e.target.value)}
+                placeholder="输入新用户名"
+                className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl text-xs text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-orange-500 min-h-[38px]"
+                required
+              />
+            </div>
+
+            <div>
+              <label className="block text-[11px] font-semibold text-gray-700 dark:text-gray-300 mb-1">
+                修改密码 (至少 4 位)
+              </label>
+              <input
+                type="password"
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                placeholder="输入新密码"
+                className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl text-xs text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-orange-500 min-h-[38px]"
+                required
+              />
+            </div>
+          </div>
+
+          <button
+            type="submit"
+            className="w-full py-2.5 bg-orange-500 hover:bg-orange-600 text-white font-semibold rounded-xl text-xs transition-colors shadow-sm flex items-center justify-center space-x-1 min-h-[40px]"
+          >
+            <Lock size={14} />
+            <span>保存修改账号密码</span>
+          </button>
+        </form>
       </div>
 
       {/* Compute Engine & API Selection Section */}
@@ -185,7 +256,7 @@ export const SettingsTab: React.FC = () => {
 
             <div>
               <label className="block text-[11px] text-gray-600 dark:text-gray-400 mb-1">
-                Fal.ai Key / OpenAI Key (DALL-E 3 / Vercel AI SDK)
+                Fal.ai Key / OpenAI Key (DALL-E 3)
               </label>
               <input
                 type="password"
@@ -220,7 +291,7 @@ export const SettingsTab: React.FC = () => {
 
             <div>
               <label className="block text-[11px] text-gray-600 dark:text-gray-400 mb-1">
-                私有 SD WebUI / Wasmer WebAssembly 接口节点
+                私有 SD WebUI / Wasmer 接口节点
               </label>
               <input
                 type="text"
@@ -237,7 +308,7 @@ export const SettingsTab: React.FC = () => {
             className="w-full py-3 bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white font-semibold rounded-xl text-xs transition-colors shadow-sm flex items-center justify-center space-x-1.5 min-h-[44px]"
           >
             <Save size={16} />
-            <span>保存并应用算力配置</span>
+            <span>保存算力配置</span>
           </button>
         </form>
       </div>
@@ -257,7 +328,7 @@ export const SettingsTab: React.FC = () => {
               开启 D1 数据库跨端多设备同步
             </div>
             <p className="text-[10px] text-gray-500 dark:text-gray-400">
-              连接 Cloudflare D1 数据库时，历史绘图记录可全自动云端同步
+              连接 Cloudflare D1 数据库时，历史绘图记录全自动云端同步
             </p>
           </div>
           <button

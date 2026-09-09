@@ -2,22 +2,29 @@
 
 import React, { useState } from 'react';
 import { useApp } from '@/context/AppContext';
-import { ASPECT_RATIOS, enhancePromptText } from '@/lib/constants';
-import { Sparkles, Sliders, ChevronDown, Wand2, Download, AlertCircle, Cpu, Layers, Copy } from 'lucide-react';
+import { ASPECT_RATIOS, SAMPLING_METHODS, enhancePromptText } from '@/lib/constants';
+import { STYLE_PRESETS } from '@/lib/stylePresets';
+import { Sparkles, Sliders, ChevronDown, Wand2, Download, AlertCircle, Cpu, Layers, Copy, Image as ImageIcon, Maximize2 } from 'lucide-react';
 import { GeneratedImage } from '@/types';
 
 interface Txt2ImgTabProps {
   onOpenModelModal: () => void;
+  onSwitchToImg2ImgWithRef?: (imageUrl: string) => void;
 }
 
-export const Txt2ImgTab: React.FC<Txt2ImgTabProps> = ({ onOpenModelModal }) => {
+export const Txt2ImgTab: React.FC<Txt2ImgTabProps> = ({ onOpenModelModal, onSwitchToImg2ImgWithRef }) => {
   const { selectedModel, settings, addHistoryItem, showToast } = useApp();
 
   const [prompt, setPrompt] = useState('');
   const [negativePrompt, setNegativePrompt] = useState('');
+  const [selectedStyle, setSelectedStyle] = useState<string>('none');
+  const [sampler, setSampler] = useState<string>(settings.defaultSampler || 'Euler a');
   const [aspectRatio, setAspectRatio] = useState(settings.defaultAspectRatio || '1:1');
+  const [isCustomSize, setIsCustomSize] = useState(false);
+  const [customWidth, setCustomWidth] = useState(1024);
+  const [customHeight, setCustomHeight] = useState(1024);
   const [batchCount, setBatchCount] = useState<number>(settings.defaultBatchCount || 1);
-  const [steps, setSteps] = useState(settings.defaultSteps || 20);
+  const [steps, setSteps] = useState(settings.defaultSteps || 25);
   const [guidance, setGuidance] = useState(settings.defaultGuidance || 7.5);
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
@@ -25,37 +32,53 @@ export const Txt2ImgTab: React.FC<Txt2ImgTabProps> = ({ onOpenModelModal }) => {
   const [errorText, setErrorText] = useState('');
 
   const currentRatioObj = ASPECT_RATIOS.find((r) => r.value === aspectRatio) || ASPECT_RATIOS[0];
+  const finalWidth = isCustomSize ? customWidth : currentRatioObj.width;
+  const finalHeight = isCustomSize ? customHeight : currentRatioObj.height;
 
   const handleEnhancePrompt = () => {
     if (!prompt.trim()) {
-      showToast('请先输入提示词', 'info');
+      showToast('请先输入生成提示词', 'info');
       return;
     }
     const enhanced = enhancePromptText(prompt);
     setPrompt(enhanced);
-    showToast('已完成提示词品质魔改与优化！', 'success');
+    showToast('已自动补全大师级品质关键词！', 'success');
   };
 
   const handleGenerate = async () => {
     if (!prompt.trim()) {
-      showToast('请输入提示词', 'error');
+      showToast('请输入作画提示词', 'error');
       return;
     }
 
     setIsGenerating(true);
     setErrorText('');
 
+    let finalPrompt = prompt.trim();
+    let finalNegative = negativePrompt.trim();
+
+    if (selectedStyle !== 'none') {
+      const styleObj = STYLE_PRESETS.find((s) => s.id === selectedStyle);
+      if (styleObj) {
+        finalPrompt += styleObj.promptSuffix;
+        if (styleObj.negativePromptSuffix) {
+          finalNegative += styleObj.negativePromptSuffix;
+        }
+      }
+    }
+
     try {
       const res = await fetch('/api/generate/text-to-image', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          prompt: prompt.trim(),
-          negativePrompt: negativePrompt.trim(),
-          width: currentRatioObj.width,
-          height: currentRatioObj.height,
-          aspectRatio,
+          prompt: finalPrompt,
+          negativePrompt: finalNegative,
+          width: finalWidth,
+          height: finalHeight,
+          aspectRatio: isCustomSize ? `${finalWidth}x${finalHeight}` : aspectRatio,
           model: selectedModel.id,
+          sampler,
           steps,
           guidance,
           batchCount,
@@ -82,16 +105,18 @@ export const Txt2ImgTab: React.FC<Txt2ImgTabProps> = ({ onOpenModelModal }) => {
           imageUrl: primaryUrl,
           imageUrls: allUrls,
           params: {
-            prompt,
-            negativePrompt,
-            width: currentRatioObj.width,
-            height: currentRatioObj.height,
-            aspectRatio,
+            prompt: finalPrompt,
+            negativePrompt: finalNegative,
+            width: finalWidth,
+            height: finalHeight,
+            aspectRatio: isCustomSize ? `${finalWidth}x${finalHeight}` : aspectRatio,
             model: selectedModel.id,
+            sampler,
             steps,
             guidance,
             batchCount,
             computeEngineId: settings.computeEngine || 'stable-diffusion',
+            stylePreset: selectedStyle,
           },
           createdAt: Date.now(),
           modelName: selectedModel.translatedName || selectedModel.name,
@@ -99,9 +124,9 @@ export const Txt2ImgTab: React.FC<Txt2ImgTabProps> = ({ onOpenModelModal }) => {
 
         setGeneratedImg(newItem);
         await addHistoryItem(newItem);
-        showToast(`成功生成 ${allUrls.length} 张高质量图片！`, 'success');
+        showToast(`成功生成 ${allUrls.length} 张高清作画！`, 'success');
       } else {
-        const msg = data.error || '图像生成失败，外部算力未响应';
+        const msg = data.error || '图像生成失败，请核对接口配置或稍后重试';
         setErrorText(msg);
         showToast(msg, 'error');
       }
@@ -125,6 +150,12 @@ export const Txt2ImgTab: React.FC<Txt2ImgTabProps> = ({ onOpenModelModal }) => {
     document.body.removeChild(a);
   };
 
+  const handleCopyPrompt = () => {
+    if (!prompt) return;
+    navigator.clipboard.writeText(prompt);
+    showToast('提示词已复制到剪贴板！', 'success');
+  };
+
   return (
     <div className="space-y-4 pb-20">
       {/* Active Model & Engine Selector Bar */}
@@ -140,7 +171,7 @@ export const Txt2ImgTab: React.FC<Txt2ImgTabProps> = ({ onOpenModelModal }) => {
             <div className="text-xs text-orange-600 dark:text-orange-400 font-medium flex items-center space-x-1">
               <Cpu size={12} />
               <span>
-                引擎: {settings.computeEngine === 'cloudflare-ai' ? 'Cloudflare Workers AI' : settings.computeEngine === 'huggingface' ? 'HuggingFace 无限制' : 'Stable Diffusion 核心'}
+                算力节点: {settings.computeEngine === 'cloudflare-ai' ? 'Cloudflare Workers AI' : settings.computeEngine === 'huggingface' ? 'HuggingFace 开源' : 'Stable Diffusion 引擎'}
               </span>
             </div>
             <div className="text-sm font-semibold text-gray-900 dark:text-white truncate">
@@ -149,26 +180,37 @@ export const Txt2ImgTab: React.FC<Txt2ImgTabProps> = ({ onOpenModelModal }) => {
           </div>
         </div>
         <span className="text-xs text-orange-500 dark:text-orange-400 font-medium group-hover:underline shrink-0 ml-2">
-          切换模型/算力 &rarr;
+          切换模型/节点 &rarr;
         </span>
       </div>
 
       {/* Main Form */}
       <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl p-4 shadow-sm space-y-4">
-        {/* Prompt Input with Enhance Button */}
+        {/* Prompt Input with Enhance & Copy Buttons */}
         <div>
           <div className="flex items-center justify-between mb-1.5">
             <label className="text-xs font-semibold text-gray-700 dark:text-gray-300">
               正向提示词 (Prompt)
             </label>
-            <button
-              type="button"
-              onClick={handleEnhancePrompt}
-              className="flex items-center space-x-1 px-2.5 py-1 bg-orange-50 dark:bg-orange-950/50 border border-orange-200 dark:border-orange-800/60 text-orange-600 dark:text-orange-400 rounded-lg text-[11px] font-medium hover:bg-orange-100 transition-colors"
-            >
-              <Sparkles size={12} />
-              <span>提示词品质优化</span>
-            </button>
+            <div className="flex space-x-1">
+              <button
+                type="button"
+                onClick={handleCopyPrompt}
+                className="flex items-center space-x-1 px-2 py-0.5 bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-300 rounded text-[10px] hover:bg-gray-200 transition-colors"
+                title="复制当前提示词"
+              >
+                <Copy size={11} />
+                <span>复制</span>
+              </button>
+              <button
+                type="button"
+                onClick={handleEnhancePrompt}
+                className="flex items-center space-x-1 px-2.5 py-0.5 bg-orange-50 dark:bg-orange-950/50 border border-orange-200 dark:border-orange-800/60 text-orange-600 dark:text-orange-400 rounded-lg text-[11px] font-medium hover:bg-orange-100 transition-colors"
+              >
+                <Sparkles size={12} />
+                <span>✨ 提示词魔改/优化</span>
+              </button>
+            </div>
           </div>
           <textarea
             value={prompt}
@@ -177,6 +219,61 @@ export const Txt2ImgTab: React.FC<Txt2ImgTabProps> = ({ onOpenModelModal }) => {
             placeholder="描述你想生成的画面细节，例如：一只身穿精美赛博朋克装甲的白狐，夜幕下的霓虹城市，超清细致，电影级打光..."
             className="w-full p-3 bg-gray-50 dark:bg-gray-800/80 border border-gray-200 dark:border-gray-700 rounded-xl text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-orange-500 focus:outline-none resize-none transition-all"
           />
+        </div>
+
+        {/* Style Presets Pills */}
+        <div>
+          <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1.5">
+            艺术风格预设
+          </label>
+          <div className="flex items-center space-x-1.5 overflow-x-auto pb-1 scrollbar-none text-xs">
+            <button
+              type="button"
+              onClick={() => setSelectedStyle('none')}
+              className={`px-3 py-1.5 rounded-xl font-medium shrink-0 border transition-all ${
+                selectedStyle === 'none'
+                  ? 'bg-orange-500 text-white border-orange-500 shadow-sm'
+                  : 'bg-gray-50 dark:bg-gray-800 text-gray-700 dark:text-gray-300 border-gray-200 dark:border-gray-700'
+              }`}
+            >
+              无滤镜 (原汁原味)
+            </button>
+            {STYLE_PRESETS.map((preset) => {
+              const isSelected = selectedStyle === preset.id;
+              return (
+                <button
+                  key={preset.id}
+                  type="button"
+                  onClick={() => setSelectedStyle(preset.id)}
+                  className={`px-3 py-1.5 rounded-xl font-medium shrink-0 border transition-all ${
+                    isSelected
+                      ? 'bg-orange-500 text-white border-orange-500 shadow-sm'
+                      : 'bg-gray-50 dark:bg-gray-800 text-gray-700 dark:text-gray-300 border-gray-200 dark:border-gray-700 hover:border-gray-300'
+                  }`}
+                >
+                  {preset.name}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Sampling Method Selector */}
+        <div>
+          <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1.5">
+            选择采样方法 (Sampler)
+          </label>
+          <select
+            value={sampler}
+            onChange={(e) => setSampler(e.target.value)}
+            className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-800/80 border border-gray-200 dark:border-gray-700 rounded-xl text-xs text-gray-900 dark:text-white focus:ring-2 focus:ring-orange-500 focus:outline-none transition-all min-h-[40px]"
+          >
+            {SAMPLING_METHODS.map((method) => (
+              <option key={method.id} value={method.id}>
+                {method.name}
+              </option>
+            ))}
+          </select>
         </div>
 
         {/* Negative Prompt */}
@@ -193,37 +290,88 @@ export const Txt2ImgTab: React.FC<Txt2ImgTabProps> = ({ onOpenModelModal }) => {
           />
         </div>
 
-        {/* Aspect Ratio & Batch Count Option */}
+        {/* Aspect Ratio & Custom Dimensions Option */}
         <div className="space-y-3">
           <div>
-            <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-2">
-              画面尺寸与比例
-            </label>
-            <div className="grid grid-cols-5 gap-1.5">
-              {ASPECT_RATIOS.map((item) => {
-                const isSelected = aspectRatio === item.value;
-                return (
-                  <button
-                    key={item.value}
-                    type="button"
-                    onClick={() => setAspectRatio(item.value)}
-                    className={`flex flex-col items-center justify-center py-2 px-1 rounded-xl text-xs font-medium border transition-all ${
-                      isSelected
-                        ? 'bg-orange-500 text-white border-orange-500 shadow-sm'
-                        : 'bg-gray-50 dark:bg-gray-800/60 text-gray-700 dark:text-gray-300 border-gray-200 dark:border-gray-700 hover:border-gray-300'
-                    }`}
-                  >
-                    <span className="font-bold text-[11px]">{item.value}</span>
-                    <span className="text-[9px] opacity-80 scale-90">{item.label.split(' ')[1] || ''}</span>
-                  </button>
-                );
-              })}
+            <div className="flex items-center justify-between mb-2">
+              <label className="text-xs font-semibold text-gray-700 dark:text-gray-300">
+                画面尺寸与比例
+              </label>
+              <button
+                type="button"
+                onClick={() => setIsCustomSize(!isCustomSize)}
+                className={`flex items-center space-x-1 text-[11px] font-medium px-2 py-0.5 rounded-lg border transition-colors ${
+                  isCustomSize
+                    ? 'bg-orange-50 dark:bg-orange-950/60 border-orange-400 text-orange-600 dark:text-orange-400'
+                    : 'bg-gray-100 dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300'
+                }`}
+              >
+                <Maximize2 size={12} />
+                <span>{isCustomSize ? '使用常用比例' : '自定义长宽尺寸'}</span>
+              </button>
             </div>
+
+            {!isCustomSize ? (
+              <div className="grid grid-cols-5 gap-1.5">
+                {ASPECT_RATIOS.map((item) => {
+                  const isSelected = aspectRatio === item.value;
+                  return (
+                    <button
+                      key={item.value}
+                      type="button"
+                      onClick={() => setAspectRatio(item.value)}
+                      className={`flex flex-col items-center justify-center py-2 px-1 rounded-xl text-xs font-medium border transition-all ${
+                        isSelected
+                          ? 'bg-orange-500 text-white border-orange-500 shadow-sm'
+                          : 'bg-gray-50 dark:bg-gray-800/60 text-gray-700 dark:text-gray-300 border-gray-200 dark:border-gray-700 hover:border-gray-300'
+                      }`}
+                    >
+                      <span className="font-bold text-[11px]">{item.value}</span>
+                      <span className="text-[9px] opacity-80 scale-90">{item.label.split(' ')[1] || ''}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="p-3 bg-gray-50 dark:bg-gray-800/60 rounded-xl border border-gray-200 dark:border-gray-700 space-y-2">
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <div className="flex justify-between text-[11px] font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      <span>自定义宽度: {customWidth}px</span>
+                    </div>
+                    <input
+                      type="range"
+                      min="256"
+                      max="2048"
+                      step="64"
+                      value={customWidth}
+                      onChange={(e) => setCustomWidth(Number(e.target.value))}
+                      className="w-full accent-orange-500"
+                    />
+                  </div>
+
+                  <div>
+                    <div className="flex justify-between text-[11px] font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      <span>自定义高度: {customHeight}px</span>
+                    </div>
+                    <input
+                      type="range"
+                      min="256"
+                      max="2048"
+                      step="64"
+                      value={customHeight}
+                      onChange={(e) => setCustomHeight(Number(e.target.value))}
+                      className="w-full accent-orange-500"
+                    />
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
 
           <div>
             <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1.5">
-              单次生成图片张数
+              单次并发生成张数
             </label>
             <div className="grid grid-cols-3 gap-2">
               {[1, 2, 4].map((num) => (
@@ -307,12 +455,12 @@ export const Txt2ImgTab: React.FC<Txt2ImgTabProps> = ({ onOpenModelModal }) => {
           {isGenerating ? (
             <>
               <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-              <span>白狐AI 正在渲染 {batchCount} 张画作中...</span>
+              <span>白狐AI 正在构思渲染 {batchCount} 张画作...</span>
             </>
           ) : (
             <>
               <Wand2 size={18} />
-              <span>开始生成 {batchCount} 张图像</span>
+              <span>开始生成 {batchCount} 张画作</span>
             </>
           )}
         </button>
@@ -357,13 +505,25 @@ export const Txt2ImgTab: React.FC<Txt2ImgTabProps> = ({ onOpenModelModal }) => {
                   alt={`${generatedImg.params.prompt} - ${index + 1}`}
                   className="w-full h-auto max-h-[450px] object-contain rounded-xl"
                 />
-                <button
-                  onClick={() => handleDownload(imgUrl)}
-                  className="absolute bottom-2 right-2 p-2 bg-black/70 hover:bg-orange-600 text-white rounded-lg text-xs font-medium backdrop-blur-sm transition-colors flex items-center space-x-1 shadow-md"
-                >
-                  <Download size={13} />
-                  <span>下载</span>
-                </button>
+                <div className="absolute bottom-2 right-2 flex space-x-1.5 opacity-90 group-hover:opacity-100 transition-opacity">
+                  {onSwitchToImg2ImgWithRef && (
+                    <button
+                      onClick={() => onSwitchToImg2ImgWithRef(imgUrl)}
+                      className="px-2.5 py-1.5 bg-black/70 hover:bg-orange-600 text-white rounded-lg text-xs font-medium backdrop-blur-sm transition-colors flex items-center space-x-1 shadow-md"
+                      title="将此图作为图生图参考图"
+                    >
+                      <ImageIcon size={13} />
+                      <span>以此重绘</span>
+                    </button>
+                  )}
+                  <button
+                    onClick={() => handleDownload(imgUrl)}
+                    className="p-1.5 bg-black/70 hover:bg-orange-600 text-white rounded-lg backdrop-blur-sm transition-colors shadow-md"
+                    title="下载原图"
+                  >
+                    <Download size={14} />
+                  </button>
+                </div>
               </div>
             ))}
           </div>
@@ -375,6 +535,8 @@ export const Txt2ImgTab: React.FC<Txt2ImgTabProps> = ({ onOpenModelModal }) => {
             </div>
             <div className="text-[11px] text-gray-400 flex flex-wrap gap-2 pt-1">
               <span>模型: {generatedImg.modelName}</span>
+              <span>采样: {generatedImg.params.sampler || 'Euler a'}</span>
+              <span>分辨率: {generatedImg.params.width} x {generatedImg.params.height}</span>
               <span>比例: {generatedImg.params.aspectRatio}</span>
               <span>步数: {generatedImg.params.steps}</span>
             </div>
