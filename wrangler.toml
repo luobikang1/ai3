@@ -6,7 +6,8 @@ compatibility_flags = ["nodejs_compat"]
 [vars]
 ADMIN_USERNAME = "admin"
 
-[[d1_databases]]
-binding = "DB"
-database_name = "baihu_ai_db"
-database_id = "baihu-ai-three-d1-id"
+# Optional Cloudflare D1 Database binding (Uncomment and replace database_id with your real D1 ID after creating via 'wrangler d1 create baihu_ai_db')
+# [[d1_databases]]
+# binding = "DB"
+# database_name = "baihu_ai_db"
+# database_id = "your-real-d1-database-id"
