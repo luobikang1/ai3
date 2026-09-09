@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "pages:build": "npx @cloudflare/next-on-pages && (mkdir -p out && cp -r .vercel/output/static/* out/ 2>/dev/null || true)",
+    "pages:build": "next build && npx @cloudflare/next-on-pages --skip-build",
     "start": "next start",
     "lint": "eslint"
   },
