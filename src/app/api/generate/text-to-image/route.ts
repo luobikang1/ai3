@@ -217,7 +217,7 @@ export async function POST(req: NextRequest) {
       // 5. Pollinations Global Open GPU Pool (Fallback Out-of-the-Box)
       const encodedPrompt = encodeURIComponent(prompt.trim());
       const pollinationsModel = model.startsWith('@cf/') ? 'flux' : model;
-      const pollinationsUrl = `https://image.pollinations.ai/prompt/${encodedPrompt}?width=${width}&height=${height}&seed=${currentSeed}&nologo=true&model=${encodeURIComponent(
+      const pollinationsUrl = `https://image.pollinations.ai/prompt/${encodedPrompt}?width=${width}&height=${height}&seed=${currentSeed}&nologo=true&safe=false&model=${encodeURIComponent(
         pollinationsModel
       )}`;
 

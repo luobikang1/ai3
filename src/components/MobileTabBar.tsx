@@ -1,9 +1,9 @@
 'use client';
 
 import React from 'react';
-import { Image as ImageIcon, Sparkles, Layers, History, Settings } from 'lucide-react';
+import { Image as ImageIcon, Sparkles, Layers, History, Settings, Wand2 } from 'lucide-react';
 
-export type TabType = 'txt2img' | 'img2img' | 'models' | 'history' | 'settings';
+export type TabType = 'txt2img' | 'img2img' | 'edit' | 'models' | 'history' | 'settings';
 
 interface MobileTabBarProps {
   activeTab: TabType;
@@ -14,8 +14,9 @@ export const MobileTabBar: React.FC<MobileTabBarProps> = ({ activeTab, setActive
   const tabs = [
     { id: 'txt2img' as TabType, label: '文生图', icon: Sparkles },
     { id: 'img2img' as TabType, label: '图生图', icon: ImageIcon },
+    { id: 'edit' as TabType, label: 'AI修图', icon: Wand2 },
     { id: 'models' as TabType, label: '模型库', icon: Layers },
-    { id: 'history' as TabType, label: '历史记录', icon: History },
+    { id: 'history' as TabType, label: '历史', icon: History },
     { id: 'settings' as TabType, label: '设置', icon: Settings },
   ];
 

@@ -6,6 +6,7 @@ import { Navbar } from '@/components/Navbar';
 import { MobileTabBar, TabType } from '@/components/MobileTabBar';
 import { Txt2ImgTab } from '@/components/Txt2ImgTab';
 import { Img2ImgTab } from '@/components/Img2ImgTab';
+import { ImageEditorTab } from '@/components/ImageEditorTab';
 import { ModelSelector } from '@/components/ModelSelector';
 import { HistoryTab } from '@/components/HistoryTab';
 import { SettingsTab } from '@/components/SettingsTab';
@@ -44,6 +45,7 @@ function MainApp() {
         {activeTab === 'img2img' && (
           <Img2ImgTab onOpenModelModal={() => setIsModelModalOpen(true)} />
         )}
+        {activeTab === 'edit' && <ImageEditorTab />}
         {activeTab === 'models' && <ModelSelector />}
         {activeTab === 'history' && <HistoryTab />}
         {activeTab === 'settings' && <SettingsTab />}

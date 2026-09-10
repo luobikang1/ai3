@@ -17,6 +17,8 @@ import {
   Compass,
   ThumbsUp,
   Cpu,
+  BookmarkPlus,
+  Loader2,
 } from 'lucide-react';
 
 interface ModelSelectorProps {
@@ -37,12 +39,29 @@ export const ModelSelector: React.FC<ModelSelectorProps> = ({
     toggleFavoriteModel,
     translateModels,
     isTranslating,
+    showToast,
   } = useApp();
 
   const [activeSubTab, setActiveSubTab] = useState<'preset' | 'online' | 'add'>('preset');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
+
+  // Online HuggingFace Model Search State
+  const [onlineSearchQuery, setOnlineSearchQuery] = useState('flux');
+  const [onlineSearchResults, setOnlineSearchResults] = useState<AIModel[]>([]);
+  const [isSearchingOnline, setIsSearchingOnline] = useState(false);
+
+  // Saved Custom Models list in local state
+  const [savedCustomModels, setSavedCustomModels] = useState<AIModel[]>(() => {
+    if (typeof window === 'undefined') return [];
+    try {
+      const raw = localStorage.getItem('fox_ai_saved_custom_models');
+      return raw ? JSON.parse(raw) : [];
+    } catch {
+      return [];
+    }
+  });
 
   // New Custom Model Input State
   const [customName, setCustomName] = useState('');
@@ -60,55 +79,42 @@ export const ModelSelector: React.FC<ModelSelectorProps> = ({
     { id: '3d', label: '3D立体/盲盒' },
   ];
 
-  // Featured Free Internet Recommended Online Models
-  const recommendedOnlineModels: AIModel[] = [
-    {
-      id: 'black-forest-labs/FLUX.1-schnell',
-      name: 'FLUX.1 Schnell (HuggingFace 官方免鉴权)',
-      translatedName: 'FLUX.1 Schnell (HuggingFace 官方开源)',
-      description: 'HuggingFace 开源社区零门槛调用的 FLUX 极速推导引擎',
-      provider: 'huggingface',
-      hfModelPath: 'black-forest-labs/FLUX.1-schnell',
-      category: 'flux',
-      isPopular: true,
-      recommendedReason: '免 API Key，支持黑盒及开源模型全量参数推导',
-    },
-    {
-      id: 'stabilityai/stable-diffusion-xl-base-1.0',
-      name: 'SDXL 1.0 Base (HuggingFace 开源库)',
-      translatedName: 'SDXL 1.0 基础模型 (HuggingFace 极速)',
-      description: 'Stability AI 在 HuggingFace 的开源全量 SDXL 模型',
-      provider: 'huggingface',
-      hfModelPath: 'stabilityai/stable-diffusion-xl-base-1.0',
-      category: 'sdxl',
-      isPopular: true,
-      recommendedReason: '生成构图恢弘大气，光影表现力拉满',
-    },
-    {
-      id: 'cagliostrolab/animagine-xl-3.1',
-      name: 'Animagine XL 3.1 (顶级动漫)',
-      translatedName: 'Animagine XL 3.1 (日系二次元大厂风格)',
-      description: '开源界最强 Anime 人物动漫立绘与 CG 模型',
-      provider: 'huggingface',
-      hfModelPath: 'cagliostrolab/animagine-xl-3.1',
-      category: 'anime',
-      isPopular: true,
-      recommendedReason: '精美日系动漫二次元极佳，色彩纯净',
-    },
-    {
-      id: 'SG161222/RealVisXL_V4.0',
-      name: 'RealVisXL V4.0 (极清真实人像)',
-      translatedName: 'RealVisXL V4.0 (影棚超清摄影大片)',
-      description: '逼真皮肤质感、光影层次与微距人像摄影模型',
-      provider: 'huggingface',
-      hfModelPath: 'SG161222/RealVisXL_V4.0',
-      category: 'realistic',
-      isPopular: true,
-      recommendedReason: '专业摄影灯光与毛孔细节拉满',
-    },
-  ];
+  // All combined models (preset + user saved custom models)
+  const allModels = [...models, ...savedCustomModels];
 
-  const filteredModels = models.filter((model) => {
+  const handleSearchOnlineModels = async (q: string) => {
+    if (!q.trim()) return;
+    setIsSearchingOnline(true);
+    try {
+      const res = await fetch(`/api/models/search?q=${encodeURIComponent(q.trim())}`);
+      const data = await res.json();
+      if (data.success && Array.isArray(data.data)) {
+        setOnlineSearchResults(data.data);
+      }
+    } catch {
+      showToast('全网模型搜索失败，请稍后重试', 'error');
+    } finally {
+      setIsSearchingOnline(false);
+    }
+  };
+
+  const saveModelToLibrary = (model: AIModel) => {
+    const exists = savedCustomModels.some((m) => m.id === model.id);
+    if (exists) {
+      showToast('该模型已存在于您的模型库中', 'info');
+      return;
+    }
+    const updated = [model, ...savedCustomModels];
+    setSavedCustomModels(updated);
+    try {
+      localStorage.setItem('fox_ai_saved_custom_models', JSON.stringify(updated));
+      showToast(`已成功将 ${model.name} 保存至您的模型库！`, 'success');
+    } catch {
+      showToast('保存模型失败', 'error');
+    }
+  };
+
+  const filteredModels = allModels.filter((model) => {
     const matchesSearch =
       model.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       (model.translatedName &&
@@ -143,12 +149,13 @@ export const ModelSelector: React.FC<ModelSelectorProps> = ({
       isCustomAdded: true,
     };
 
+    saveModelToLibrary(newModel);
     handleSelect(newModel);
   };
 
   const content = (
     <div className="space-y-4">
-      {/* Sub Tabs: Built-in Models vs Recommended Online Models vs Add Custom */}
+      {/* Sub Tabs */}
       <div className="flex items-center justify-between border-b border-gray-200 dark:border-gray-800 pb-2">
         <div className="flex space-x-2 text-xs font-bold">
           <button
@@ -160,11 +167,16 @@ export const ModelSelector: React.FC<ModelSelectorProps> = ({
             }`}
           >
             <Layers size={14} />
-            <span>内置模型库 ({models.length})</span>
+            <span>我的模型库 ({allModels.length})</span>
           </button>
 
           <button
-            onClick={() => setActiveSubTab('online')}
+            onClick={() => {
+              setActiveSubTab('online');
+              if (onlineSearchResults.length === 0) {
+                handleSearchOnlineModels(onlineSearchQuery);
+              }
+            }}
             className={`px-3 py-2 rounded-xl transition-all flex items-center space-x-1 ${
               activeSubTab === 'online'
                 ? 'bg-orange-500 text-white shadow-sm'
@@ -172,7 +184,7 @@ export const ModelSelector: React.FC<ModelSelectorProps> = ({
             }`}
           >
             <Compass size={14} />
-            <span>互联网免费开源模型</span>
+            <span>全网免费开源模型搜索</span>
           </button>
 
           <button
@@ -198,7 +210,7 @@ export const ModelSelector: React.FC<ModelSelectorProps> = ({
         </button>
       </div>
 
-      {/* SubTab 1: Built-in Models */}
+      {/* SubTab 1: Built-in & Saved Custom Models */}
       {activeSubTab === 'preset' && (
         <div className="space-y-3">
           {/* Search & Filter Controls */}
@@ -340,48 +352,86 @@ export const ModelSelector: React.FC<ModelSelectorProps> = ({
         </div>
       )}
 
-      {/* SubTab 2: Recommended Free Internet Models */}
+      {/* SubTab 2: Online Free Open-Source Search */}
       {activeSubTab === 'online' && (
         <div className="space-y-3">
-          <div className="p-3 bg-gradient-to-r from-purple-500/10 via-orange-500/10 to-amber-500/10 border border-purple-200 dark:border-purple-800/40 rounded-xl text-xs text-purple-900 dark:text-purple-200 flex items-start space-x-2">
-            <ThumbsUp size={16} className="shrink-0 text-purple-500 mt-0.5" />
-            <span>
-              全网热门免 Key 开源模型推荐。点击即可一键选为当前绘画引擎模型，完美适配文字排版与写实大片。
-            </span>
+          <div className="flex gap-2">
+            <div className="relative flex-1">
+              <Search size={16} className="absolute left-3 top-3 text-gray-400" />
+              <input
+                type="text"
+                value={onlineSearchQuery}
+                onChange={(e) => setOnlineSearchQuery(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && handleSearchOnlineModels(onlineSearchQuery)}
+                placeholder="搜索全网 HuggingFace 免 Key 开源模型 (如: flux, anime, realvis, SDXL)..."
+                className="w-full pl-9 pr-3 py-2 bg-gray-50 dark:bg-gray-800/80 border border-gray-200 dark:border-gray-700 rounded-xl text-xs text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-orange-500 min-h-[40px]"
+              />
+            </div>
+            <button
+              onClick={() => handleSearchOnlineModels(onlineSearchQuery)}
+              disabled={isSearchingOnline}
+              className="px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white rounded-xl text-xs font-semibold shrink-0 flex items-center space-x-1"
+            >
+              {isSearchingOnline ? <Loader2 size={14} className="animate-spin" /> : <Search size={14} />}
+              <span>搜索开源库</span>
+            </button>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-[50vh] overflow-y-auto">
-            {recommendedOnlineModels.map((model) => (
-              <div
-                key={model.id}
-                onClick={() => handleSelect(model)}
-                className="p-3.5 bg-white dark:bg-gray-800/80 border border-gray-200 dark:border-gray-700 hover:border-orange-500 dark:hover:border-orange-500 rounded-xl cursor-pointer transition-all flex flex-col justify-between group shadow-sm"
-              >
-                <div>
-                  <div className="flex items-center justify-between">
-                    <span className="font-bold text-xs text-gray-900 dark:text-white">
-                      {model.translatedName}
-                    </span>
-                    <span className="text-[9px] px-2 py-0.5 bg-orange-100 dark:bg-orange-950/60 text-orange-600 dark:text-orange-400 rounded-full font-semibold">
-                      开源精选
-                    </span>
+          {isSearchingOnline ? (
+            <div className="p-8 text-center text-xs text-gray-500 dark:text-gray-400 flex items-center justify-center space-x-2">
+              <Loader2 size={16} className="animate-spin text-orange-500" />
+              <span>正在搜索全网 HuggingFace 热门开源模型...</span>
+            </div>
+          ) : onlineSearchResults.length === 0 ? (
+            <div className="p-8 text-center bg-gray-50 dark:bg-gray-800/40 rounded-2xl border border-dashed border-gray-200 dark:border-gray-700">
+              <p className="text-xs text-gray-500 dark:text-gray-400">请输入关键词搜索全网开放开源模型节点</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 max-h-[48vh] overflow-y-auto pr-1">
+              {onlineSearchResults.map((model) => (
+                <div
+                  key={model.id}
+                  className="p-3.5 bg-white dark:bg-gray-800/80 border border-gray-200 dark:border-gray-700 rounded-xl flex flex-col justify-between group shadow-sm hover:border-orange-400 transition-all"
+                >
+                  <div>
+                    <div className="flex items-center justify-between">
+                      <span className="font-bold text-xs text-gray-900 dark:text-white truncate">
+                        {model.translatedName}
+                      </span>
+                      <span className="text-[9px] px-2 py-0.5 bg-purple-100 dark:bg-purple-950/60 text-purple-600 dark:text-purple-300 rounded-full font-semibold">
+                        HuggingFace
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-1 line-clamp-2">
+                      {model.description}
+                    </p>
                   </div>
-                  <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-1">
-                    {model.description}
-                  </p>
-                </div>
 
-                <div className="mt-3 pt-2 border-t border-gray-100 dark:border-gray-700/60 flex items-center justify-between text-[10px] text-orange-600 dark:text-orange-400 font-medium">
-                  <span>推荐理由: {model.recommendedReason}</span>
-                  <span className="group-hover:translate-x-1 transition-transform">应用 &rarr;</span>
+                  <div className="mt-3 pt-2 border-t border-gray-100 dark:border-gray-700/60 flex items-center justify-between">
+                    <button
+                      type="button"
+                      onClick={() => handleSelect(model)}
+                      className="px-2.5 py-1 bg-gray-100 hover:bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-white rounded-lg text-[11px] font-medium transition-colors"
+                    >
+                      直接调用
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => saveModelToLibrary(model)}
+                      className="flex items-center space-x-1 px-2.5 py-1 bg-orange-50 dark:bg-orange-950/60 text-orange-600 dark:text-orange-400 border border-orange-200 dark:border-orange-800/60 rounded-lg text-[11px] font-semibold hover:bg-orange-100 transition-colors"
+                    >
+                      <BookmarkPlus size={13} />
+                      <span>保存至模型库</span>
+                    </button>
+                  </div>
                 </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
 
-      {/* SubTab 3: Add Custom Model Option */}
+      {/* SubTab 3: Add Custom Model */}
       {activeSubTab === 'add' && (
         <form onSubmit={handleAddCustomModel} className="space-y-3 bg-gray-50 dark:bg-gray-800/50 p-4 rounded-xl border border-gray-200 dark:border-gray-700">
           <div className="text-xs font-bold text-gray-900 dark:text-white flex items-center space-x-1.5">

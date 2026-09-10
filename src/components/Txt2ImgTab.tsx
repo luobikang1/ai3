@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { useApp } from '@/context/AppContext';
-import { ASPECT_RATIOS, SAMPLING_METHODS, enhancePromptText } from '@/lib/constants';
+import { ASPECT_RATIOS, SAMPLING_METHODS, COMPUTE_ENGINES, enhancePromptText } from '@/lib/constants';
 import { STYLE_PRESETS } from '@/lib/stylePresets';
 import { Sparkles, Sliders, ChevronDown, Wand2, Download, AlertCircle, Cpu, Layers, Copy, Image as ImageIcon, Maximize2 } from 'lucide-react';
 import { GeneratedImage } from '@/types';
@@ -13,7 +13,7 @@ interface Txt2ImgTabProps {
 }
 
 export const Txt2ImgTab: React.FC<Txt2ImgTabProps> = ({ onOpenModelModal, onSwitchToImg2ImgWithRef }) => {
-  const { selectedModel, settings, addHistoryItem, showToast } = useApp();
+  const { selectedModel, settings, updateSettings, addHistoryItem, showToast } = useApp();
 
   const [prompt, setPrompt] = useState('');
   const [negativePrompt, setNegativePrompt] = useState('');
@@ -159,29 +159,47 @@ export const Txt2ImgTab: React.FC<Txt2ImgTabProps> = ({ onOpenModelModal, onSwit
   return (
     <div className="space-y-4 pb-20">
       {/* Active Model & Engine Selector Bar */}
-      <div
-        onClick={onOpenModelModal}
-        className="flex items-center justify-between p-3.5 bg-gradient-to-r from-orange-500/10 via-amber-500/10 to-orange-500/5 dark:from-orange-950/30 dark:via-amber-950/20 dark:to-transparent border border-orange-200/50 dark:border-orange-800/40 rounded-xl cursor-pointer hover:border-orange-400 transition-all group"
-      >
-        <div className="flex items-center space-x-3 overflow-hidden">
-          <div className="w-9 h-9 rounded-lg bg-orange-500 text-white flex items-center justify-center font-bold text-sm shrink-0 shadow-sm">
-            AI
-          </div>
-          <div className="truncate">
-            <div className="text-xs text-orange-600 dark:text-orange-400 font-medium flex items-center space-x-1">
-              <Cpu size={12} />
-              <span>
-                算力节点: {settings.computeEngine === 'cloudflare-ai' ? 'Cloudflare Workers AI' : settings.computeEngine === 'huggingface' ? 'HuggingFace 开源' : 'Stable Diffusion 引擎'}
-              </span>
+      <div className="p-3.5 bg-gradient-to-r from-orange-500/10 via-amber-500/10 to-orange-500/5 dark:from-orange-950/30 dark:via-amber-950/20 dark:to-transparent border border-orange-200/50 dark:border-orange-800/40 rounded-xl transition-all space-y-2">
+        <div
+          onClick={onOpenModelModal}
+          className="flex items-center justify-between cursor-pointer group"
+        >
+          <div className="flex items-center space-x-3 overflow-hidden">
+            <div className="w-9 h-9 rounded-lg bg-orange-500 text-white flex items-center justify-center font-bold text-sm shrink-0 shadow-sm">
+              AI
             </div>
-            <div className="text-sm font-semibold text-gray-900 dark:text-white truncate">
-              {selectedModel.translatedName || selectedModel.name}
+            <div className="truncate">
+              <div className="text-[10px] text-orange-600 dark:text-orange-400 font-medium uppercase tracking-wider">
+                当前画风与预设模型
+              </div>
+              <div className="text-sm font-semibold text-gray-900 dark:text-white truncate">
+                {selectedModel.translatedName || selectedModel.name}
+              </div>
             </div>
           </div>
+          <span className="text-xs text-orange-500 dark:text-orange-400 font-medium group-hover:underline shrink-0 ml-2">
+            选择模型 &rarr;
+          </span>
         </div>
-        <span className="text-xs text-orange-500 dark:text-orange-400 font-medium group-hover:underline shrink-0 ml-2">
-          切换模型/节点 &rarr;
-        </span>
+
+        {/* Quick Compute Engine Selector */}
+        <div className="flex items-center space-x-2 pt-2 border-t border-orange-200/30 dark:border-orange-800/30">
+          <Cpu size={14} className="text-orange-500 shrink-0" />
+          <span className="text-xs font-semibold text-gray-700 dark:text-gray-300 shrink-0">
+            基础算力节点:
+          </span>
+          <select
+            value={settings.computeEngine || 'stable-diffusion'}
+            onChange={(e) => updateSettings({ computeEngine: e.target.value })}
+            className="flex-1 px-2.5 py-1 bg-white dark:bg-gray-900 border border-orange-300/60 dark:border-orange-800/60 rounded-lg text-xs font-medium text-gray-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-orange-500"
+          >
+            {COMPUTE_ENGINES.map((eng) => (
+              <option key={eng.id} value={eng.type}>
+                {eng.name}
+              </option>
+            ))}
+          </select>
+        </div>
       </div>
 
       {/* Main Form */}
