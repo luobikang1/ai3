@@ -63,10 +63,7 @@ export async function POST(req: NextRequest) {
     // Helper: generate single image with given seed
     const generateSingleImage = async (currentSeed: number): Promise<string | null> => {
       // 1. Cloudflare Workers AI Engine (70+ Models)
-      if (computeEngine === 'cloudflare-ai' || model.startsWith('@cf/')) {
-        if (!cfApiToken || !cfAccountId) {
-          throw new Error('未配置 Cloudflare API Token 或 Account ID');
-        }
+      if ((computeEngine === 'cloudflare-ai' || model.startsWith('@cf/')) && cfApiToken && cfAccountId) {
         const cfModel = model.startsWith('@cf/') ? model : '@cf/bytedance/stable-diffusion-xl-lightning';
         const cfEndpoint = `https://api.cloudflare.com/client/v4/accounts/${cfAccountId}/ai/run/${cfModel}`;
 
@@ -88,24 +85,24 @@ export async function POST(req: NextRequest) {
         });
 
         if (!cfResponse.ok) {
-          const errText = await cfResponse.text();
-          throw new Error(`Cloudflare Workers AI 错误 (${cfResponse.status}): ${errText.slice(0, 100)}`);
-        }
-
-        const contentType = cfResponse.headers.get('content-type') || '';
-        if (contentType.includes('application/json')) {
-          const jsonResult = await cfResponse.json();
-          if (jsonResult.result?.image) {
-            return jsonResult.result.image.startsWith('data:')
-              ? jsonResult.result.image
-              : `data:image/png;base64,${jsonResult.result.image}`;
+          console.warn(`Cloudflare Workers AI fallback triggered: ${cfResponse.status}`);
+        } else {
+          const contentType = cfResponse.headers.get('content-type') || '';
+          if (contentType.includes('application/json')) {
+            const jsonResult = await cfResponse.json();
+            if (jsonResult.result?.image) {
+              return jsonResult.result.image.startsWith('data:')
+                ? jsonResult.result.image
+                : `data:image/png;base64,${jsonResult.result.image}`;
+            }
           }
+
+          const arrayBuffer = await cfResponse.arrayBuffer();
+          const base64 = arrayBufferToBase64(arrayBuffer);
+          const mime = contentType.includes('image/jpeg') ? 'image/jpeg' : 'image/png';
+          return `data:${mime};base64,${base64}`;
         }
 
-        const arrayBuffer = await cfResponse.arrayBuffer();
-        const base64 = arrayBufferToBase64(arrayBuffer);
-        const mime = contentType.includes('image/jpeg') ? 'image/jpeg' : 'image/png';
-        return `data:${mime};base64,${base64}`;
       }
 
       // 2. HuggingFace Inference API Engine

@@ -47,21 +47,43 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     token: null,
   });
   const [models, setModels] = useState<AIModel[]>(PRESET_MODELS);
-  const [selectedModel, setSelectedModel] = useState<AIModel>(PRESET_MODELS[0]);
+  const [selectedModel, setSelectedModelRaw] = useState<AIModel>(PRESET_MODELS[0]);
+
+  const setSelectedModel = (model: AIModel) => {
+    setSelectedModelRaw(model);
+    // Auto-align compute engine with selected model's provider for smooth UX
+    if (model.provider === 'cloudflare') {
+      updateSettings({ computeEngine: 'cloudflare-ai' });
+    } else if (model.provider === 'huggingface') {
+      updateSettings({ computeEngine: 'huggingface' });
+    } else if (model.provider === 'fal-ai') {
+      updateSettings({ computeEngine: 'fal-ai' });
+    } else if (model.provider === 'openai') {
+      updateSettings({ computeEngine: 'custom-api' });
+    } else if (model.provider === 'pollinations') {
+      updateSettings({ computeEngine: 'pollinations' });
+    } else if (model.provider === 'stable-diffusion') {
+      updateSettings({ computeEngine: 'stable-diffusion' });
+    }
+  };
   const [isTranslating, setIsTranslating] = useState(false);
   const [history, setHistory] = useState<GeneratedImage[]>([]);
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null);
+
+  // Sync Dark Mode class whenever settings change
+  useEffect(() => {
+    if (settings.darkMode) {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+  }, [settings.darkMode]);
 
   // Initialize on mount
   useEffect(() => {
     // 1. Settings
     const initialSettings = getStoredSettings();
     setSettings(initialSettings);
-    if (initialSettings.darkMode) {
-      document.documentElement.classList.add('dark');
-    } else {
-      document.documentElement.classList.remove('dark');
-    }
 
     // 2. Auth
     const token = getStoredAuthToken();
