@@ -355,9 +355,9 @@ export function enhancePromptText(rawPrompt: string): string {
   if (!clean) return clean;
 
   const qualityBoosters =
-    ', masterpiece, best quality, highly detailed, sharp focus, 8k resolution, professional lighting, cinematic composition';
+    ', masterpiece, best quality, highly detailed, ultra sharp focus, 8k resolution, professional volumetric lighting, unreal engine 5 render, cinematic composition, photorealistic, hyperdetailed';
 
-  if (clean.includes('masterpiece') || clean.includes('8k')) {
+  if (clean.includes('masterpiece') || clean.includes('8k') || clean.includes('photorealistic')) {
     return clean;
   }
   return clean + qualityBoosters;

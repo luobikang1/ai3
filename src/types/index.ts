@@ -41,6 +41,8 @@ export interface GenerationParams {
   computeEngineId?: string;
   enhancePrompt?: boolean;
   stylePreset?: string;
+  loraId?: string;
+  loraWeight?: number;
 }
 
 export interface GeneratedImage {

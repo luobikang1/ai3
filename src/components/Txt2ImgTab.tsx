@@ -4,7 +4,8 @@ import React, { useState } from 'react';
 import { useApp } from '@/context/AppContext';
 import { ASPECT_RATIOS, SAMPLING_METHODS, COMPUTE_ENGINES, enhancePromptText } from '@/lib/constants';
 import { STYLE_PRESETS } from '@/lib/stylePresets';
-import { Sparkles, Sliders, ChevronDown, Wand2, Download, AlertCircle, Cpu, Layers, Copy, Image as ImageIcon, Maximize2 } from 'lucide-react';
+import { LORA_PRESETS } from '@/lib/loraPresets';
+import { Sparkles, Sliders, ChevronDown, Wand2, Download, AlertCircle, Cpu, Layers, Copy, Image as ImageIcon, Maximize2, Zap } from 'lucide-react';
 import { GeneratedImage } from '@/types';
 
 interface Txt2ImgTabProps {
@@ -18,6 +19,8 @@ export const Txt2ImgTab: React.FC<Txt2ImgTabProps> = ({ onOpenModelModal, onSwit
   const [prompt, setPrompt] = useState('');
   const [negativePrompt, setNegativePrompt] = useState('');
   const [selectedStyle, setSelectedStyle] = useState<string>('none');
+  const [selectedLora, setSelectedLora] = useState<string>('none');
+  const [loraWeight, setLoraWeight] = useState<number>(0.8);
   const [sampler, setSampler] = useState<string>(settings.defaultSampler || 'Euler a');
   const [aspectRatio, setAspectRatio] = useState(settings.defaultAspectRatio || '1:1');
   const [isCustomSize, setIsCustomSize] = useState(false);
@@ -64,6 +67,13 @@ export const Txt2ImgTab: React.FC<Txt2ImgTabProps> = ({ onOpenModelModal, onSwit
         if (styleObj.negativePromptSuffix) {
           finalNegative += styleObj.negativePromptSuffix;
         }
+      }
+    }
+
+    if (selectedLora !== 'none') {
+      const loraObj = LORA_PRESETS.find((l) => l.id === selectedLora);
+      if (loraObj) {
+        finalPrompt += `, ${loraObj.triggerWord}`;
       }
     }
 
@@ -270,6 +280,51 @@ export const Txt2ImgTab: React.FC<Txt2ImgTabProps> = ({ onOpenModelModal, onSwit
                   }`}
                 >
                   {preset.name}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* LoRA Style Fine-tuning Options */}
+        <div>
+          <div className="flex items-center justify-between mb-1.5">
+            <label className="text-xs font-semibold text-gray-700 dark:text-gray-300 flex items-center space-x-1">
+              <Zap size={14} className="text-amber-500" />
+              <span>LoRA 微调模型微小风格注入</span>
+            </label>
+            {selectedLora !== 'none' && (
+              <span className="text-[10px] text-orange-500 font-bold">
+                权重: {loraWeight}
+              </span>
+            )}
+          </div>
+          <div className="flex items-center space-x-1.5 overflow-x-auto pb-1 scrollbar-none text-xs">
+            <button
+              type="button"
+              onClick={() => setSelectedLora('none')}
+              className={`px-3 py-1.5 rounded-xl font-medium shrink-0 border transition-all ${
+                selectedLora === 'none'
+                  ? 'bg-amber-500 text-white border-amber-500 shadow-sm'
+                  : 'bg-gray-50 dark:bg-gray-800 text-gray-700 dark:text-gray-300 border-gray-200 dark:border-gray-700'
+              }`}
+            >
+              无 LoRA
+            </button>
+            {LORA_PRESETS.map((lora) => {
+              const isSelected = selectedLora === lora.id;
+              return (
+                <button
+                  key={lora.id}
+                  type="button"
+                  onClick={() => setSelectedLora(lora.id)}
+                  className={`px-3 py-1.5 rounded-xl font-medium shrink-0 border transition-all ${
+                    isSelected
+                      ? 'bg-amber-500 text-white border-amber-500 shadow-sm'
+                      : 'bg-gray-50 dark:bg-gray-800 text-gray-700 dark:text-gray-300 border-gray-200 dark:border-gray-700 hover:border-gray-300'
+                  }`}
+                >
+                  ⚡ {lora.name.split(' ')[0]}
                 </button>
               );
             })}
