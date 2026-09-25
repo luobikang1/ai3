@@ -5,9 +5,6 @@ import { DEFAULT_SETTINGS } from '@/lib/constants';
 
 export const runtime = 'edge';
 
-const requestCache = new Map<string, { imageUrls: string[]; timestamp: number }>();
-const CACHE_TTL_MS = 10 * 60 * 1000;
-
 function arrayBufferToBase64(buffer: ArrayBuffer): string {
   if (typeof Buffer !== 'undefined') {
     return Buffer.from(buffer).toString('base64');
@@ -37,9 +34,11 @@ export async function POST(req: NextRequest) {
     let {
       prompt,
       negativePrompt,
-      width = 1024,
-      height = 1024,
-      model = 'black-forest-labs/FLUX.1-schnell',
+      width,
+      height,
+      customWidth,
+      customHeight,
+      model = 'flux',
       provider: customProvider,
       sampler,
       steps = 25,
@@ -48,6 +47,7 @@ export async function POST(req: NextRequest) {
       seed,
       batchCount = 1,
       computeEngine = 'pollinations',
+      enableNsfw = true,
       siliconApiKey: clientSiliconKey,
       openaiApiKey: clientOpenaiKey,
       stabilityApiKey: clientStabilityKey,
@@ -69,22 +69,12 @@ export async function POST(req: NextRequest) {
       prompt = parseAndWeightPrompt(prompt, styleStrength);
     }
 
-    negativePrompt = mergeNegativePrompts(negativePrompt, DEFAULT_SETTINGS.defaultNegativePrompt);
+    negativePrompt = mergeNegativePrompts(negativePrompt, DEFAULT_SETTINGS.defaultNegativePrompt, enableNsfw);
     const baseSeed = seed ? Number(seed) : Math.floor(Math.random() * 899999) + 100000;
 
-    const cacheKey = `${model}_${prompt.trim()}_${width}_${height}_${steps}_${guidance}_${baseSeed}`;
-    const cachedEntry = requestCache.get(cacheKey);
-    if (cachedEntry && Date.now() - cachedEntry.timestamp < CACHE_TTL_MS) {
-      return NextResponse.json({
-        success: true,
-        data: {
-          imageUrl: cachedEntry.imageUrls[0],
-          imageUrls: cachedEntry.imageUrls,
-          generationTimeMs: Date.now() - startTime,
-          cached: true,
-        },
-      });
-    }
+    const finalWidth = customWidth ? Number(customWidth) : width ? Number(width) : 1024;
+    const finalHeight = customHeight ? Number(customHeight) : height ? Number(height) : 1024;
+    const resBucket = mapResolutionToBucket(finalWidth, finalHeight);
 
     const count = Math.min(Math.max(Number(batchCount) || 1, 1), 4);
     const generatedImages: string[] = [];
@@ -94,17 +84,13 @@ export async function POST(req: NextRequest) {
     const stabilityApiKey = clientStabilityKey || process.env.STABILITY_API_KEY;
     const cfApiToken = clientCfToken || process.env.CLOUDFLARE_API_TOKEN;
     const cfAccountId = clientCfAccount || process.env.CLOUDFLARE_ACCOUNT_ID;
-    const hfApiKey = clientHfKey || process.env.HUGGINGFACE_API_KEY;
-    const falApiKey = clientFalKey || process.env.FAL_KEY;
-
-    const resBucket = mapResolutionToBucket(Number(width) || 1024, Number(height) || 1024);
 
     const effectiveEngine = computeEngine || 'pollinations';
 
     const generateSingleImage = async (currentSeed: number): Promise<{ url: string; providerUsed: string }> => {
       const attemptedErrors: string[] = [];
 
-      // 1. SILICONFLOW (硅基流动)
+      // 1. SILICONFLOW
       if (effectiveEngine === 'siliconflow' || siliconApiKey) {
         if (siliconApiKey) {
           try {
@@ -138,7 +124,7 @@ export async function POST(req: NextRequest) {
               attemptedErrors.push(await parseErrorResponse(siliconRes, 'SiliconFlow 节点响应异常'));
             }
           } catch (e: any) {
-            attemptedErrors.push(`SiliconFlow 抛出错误: ${e.message}`);
+            attemptedErrors.push(`SiliconFlow 错误: ${e.message}`);
           }
         }
       }
@@ -157,7 +143,7 @@ export async function POST(req: NextRequest) {
                 model: 'dall-e-3',
                 prompt: prompt.trim(),
                 n: 1,
-                size: `${resBucket.width}x${resBucket.height}` === '1024x1024' ? '1024x1024' : '1024x1024',
+                size: '1024x1024',
                 quality: 'standard',
                 response_format: 'b64_json',
               }),
@@ -170,7 +156,7 @@ export async function POST(req: NextRequest) {
               if (oaiJson.data && oaiJson.data.length > 0 && oaiJson.data[0].b64_json) {
                 return {
                   url: `data:image/png;base64,${oaiJson.data[0].b64_json}`,
-                  providerUsed: 'OpenAI DALL-E 3 官方引擎',
+                  providerUsed: 'OpenAI DALL-E 3',
                 };
               }
             } else {
@@ -182,53 +168,7 @@ export async function POST(req: NextRequest) {
         }
       }
 
-      // 3. STABILITY AI
-      if (effectiveEngine === 'stability' || stabilityApiKey) {
-        if (stabilityApiKey) {
-          try {
-            const stabRes = await fetchWithRetry(
-              'https://api.stability.ai/v1/generation/stable-diffusion-xl-1024-v1-0/text-to-image',
-              {
-                method: 'POST',
-                headers: {
-                  Authorization: `Bearer ${stabilityApiKey}`,
-                  'Content-Type': 'application/json',
-                  Accept: 'application/json',
-                },
-                body: JSON.stringify({
-                  text_prompts: [
-                    { text: prompt.trim(), weight: 1 },
-                    { text: negativePrompt, weight: -1 },
-                  ],
-                  cfg_scale: Number(guidance) || 8.0,
-                  height: resBucket.height,
-                  width: resBucket.width,
-                  steps: Math.min(Number(steps) || 25, 50),
-                  seed: currentSeed,
-                }),
-                timeoutMs: 35000,
-                maxRetries: 2,
-              }
-            );
-
-            if (stabRes.ok) {
-              const stabJson = await stabRes.json();
-              if (stabJson.artifacts && stabJson.artifacts.length > 0) {
-                return {
-                  url: `data:image/png;base64,${stabJson.artifacts[0].base64}`,
-                  providerUsed: 'Stability AI 官方节点',
-                };
-              }
-            } else {
-              attemptedErrors.push(await parseErrorResponse(stabRes, 'Stability AI 节点异常'));
-            }
-          } catch (e: any) {
-            attemptedErrors.push(`Stability AI 错误: ${e.message}`);
-          }
-        }
-      }
-
-      // 4. CLOUDFLARE WORKERS AI
+      // 3. CLOUDFLARE WORKERS AI
       if (effectiveEngine === 'cloudflare-ai' || model.startsWith('@cf/') || cfApiToken) {
         if (cfApiToken && cfAccountId) {
           try {
@@ -278,17 +218,17 @@ export async function POST(req: NextRequest) {
         }
       }
 
-      // 5. POLLINATIONS FREE POOL
+      // 4. POLLINATIONS FREE POOL (Primary or Fallback)
       try {
         const encodedPrompt = encodeURIComponent(prompt.trim());
-        const pollinationsModel = model.startsWith('@cf/') ? 'flux' : model;
-        const pollinationsUrl = `https://image.pollinations.ai/prompt/${encodedPrompt}?width=${resBucket.width}&height=${resBucket.height}&seed=${currentSeed}&nologo=true&safe=false&model=${encodeURIComponent(
-          pollinationsModel
+        const polModel = model.startsWith('@cf/') ? 'flux' : model;
+        const pollinationsUrl = `https://image.pollinations.ai/prompt/${encodedPrompt}?width=${resBucket.width}&height=${resBucket.height}&seed=${currentSeed}&nologo=true&safe=${!enableNsfw}&model=${encodeURIComponent(
+          polModel
         )}`;
 
         const polResponse = await fetchWithRetry(pollinationsUrl, {
           headers: { 'User-Agent': 'Mozilla/5.0 (compatible; FoxAI/3.0)' },
-          timeoutMs: 30000,
+          timeoutMs: 35000,
           maxRetries: 3,
         });
 
@@ -329,8 +269,6 @@ export async function POST(req: NextRequest) {
         { status: 500 }
       );
     }
-
-    requestCache.set(cacheKey, { imageUrls: generatedImages, timestamp: Date.now() });
 
     return NextResponse.json({
       success: true,

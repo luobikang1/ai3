@@ -102,6 +102,7 @@ export interface UserSettings {
   darkMode: boolean;
   historyLimit: number;
   enableD1Sync?: boolean;
+  enableNsfw?: boolean;
   autoEnhancePrompt?: boolean;
   loginBgImage?: string;
 }

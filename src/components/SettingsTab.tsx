@@ -11,7 +11,7 @@ export const SettingsTab: React.FC = () => {
   const [siliconApiKey, setSiliconApiKey] = useState(settings.siliconApiKey || '');
   const [openaiApiKey, setOpenaiApiKey] = useState(settings.openaiApiKey || '');
   const [stabilityApiKey, setStabilityApiKey] = useState(settings.stabilityApiKey || '');
-  const [enableNsfw, setEnableNsfw] = useState(false);
+  const [enableNsfw, setEnableNsfw] = useState(settings.enableNsfw ?? true);
 
   // Cloudflare D1 Connection State
   const [d1Status, setD1Status] = useState<{ connected: boolean; message: string }>({
@@ -46,7 +46,7 @@ export const SettingsTab: React.FC = () => {
         body: JSON.stringify({
           action: 'push',
           username: auth.username || 'admin',
-          settingsData: settings,
+          settingsData: { ...settings, enableNsfw },
         }),
       });
       const json = await res.json();
@@ -70,6 +70,7 @@ export const SettingsTab: React.FC = () => {
       siliconApiKey: siliconApiKey.trim(),
       openaiApiKey: openaiApiKey.trim(),
       stabilityApiKey: stabilityApiKey.trim(),
+      enableNsfw,
     });
     showToast('全局设置已成功保存！', 'success');
   };
@@ -196,22 +197,29 @@ export const SettingsTab: React.FC = () => {
         </div>
       </div>
 
-      {/* Safety & Content Filter Switch */}
+      {/* Content Safety Toggle */}
       <div className="bg-white dark:bg-slate-900 rounded-2xl p-5 border border-slate-200 dark:border-slate-800 shadow-sm flex items-center justify-between">
         <div>
-          <div className="text-xs font-black text-slate-800 dark:text-slate-100">
-            🛡️ 敏感内容安全过滤开关 (NSFW Guard)
+          <div className="text-xs font-black text-slate-800 dark:text-slate-100 flex items-center gap-1.5">
+            <span>🔥 自由艺术生成模式 (解禁敏感艺术限制)</span>
+            <span className="text-[10px] px-2 py-0.5 rounded bg-amber-100 text-amber-700 font-bold">
+              {enableNsfw ? '已开启 (无滤镜)' : '已关闭 (严格过滤)'}
+            </span>
           </div>
           <div className="text-[11px] text-slate-400 mt-0.5">
-            开启后默认自动屏蔽不宜画面及血腥敏感关键词
+            开启后允许生成全品类自由艺术画面，不再自动叠加安全负向词限制
           </div>
         </div>
 
         <label className="relative inline-flex items-center cursor-pointer">
           <input
             type="checkbox"
-            checked={!enableNsfw}
-            onChange={(e) => setEnableNsfw(!e.target.checked)}
+            checked={enableNsfw}
+            onChange={(e) => {
+              setEnableNsfw(e.target.checked);
+              updateSettings({ enableNsfw: e.target.checked });
+              showToast(e.target.checked ? '自由艺术模式已开启！' : '安全过滤模式已开启', 'info');
+            }}
             className="sr-only peer"
           />
           <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer dark:bg-slate-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
