@@ -144,20 +144,20 @@ export const Img2ImgTab: React.FC<Img2ImgTabProps> = ({ onOpenModelModal }) => {
       {/* Active Model Selector Bar */}
       <div
         onClick={onOpenModelModal}
-        className="flex items-center justify-between p-3.5 bg-gradient-to-r from-orange-500/10 via-amber-500/10 to-orange-500/5 dark:from-orange-950/30 dark:via-amber-950/20 dark:to-transparent border border-orange-200/50 dark:border-orange-800/40 rounded-xl cursor-pointer hover:border-orange-400 transition-all group"
+        className="flex items-center justify-between p-3.5 bg-gradient-to-r from-blue-500/10 via-indigo-500/10 to-sky-500/5 dark:from-blue-950/30 dark:via-indigo-950/20 dark:to-transparent border border-blue-200/50 dark:border-blue-800/40 rounded-xl cursor-pointer hover:border-blue-400 transition-all group"
       >
         <div className="flex items-center space-x-3 overflow-hidden">
-          <div className="w-9 h-9 rounded-lg bg-orange-500 text-white flex items-center justify-center font-bold text-sm shrink-0 shadow-sm">
+          <div className="w-9 h-9 rounded-lg bg-blue-600 text-white flex items-center justify-center font-bold text-sm shrink-0 shadow-sm">
             图
           </div>
           <div className="truncate">
-            <div className="text-xs text-orange-600 dark:text-orange-400 font-medium">当前图生图模型</div>
+            <div className="text-xs text-blue-600 dark:text-blue-400 font-medium">当前图生图模型</div>
             <div className="text-sm font-semibold text-gray-900 dark:text-white truncate">
               {selectedModel.translatedName || selectedModel.name}
             </div>
           </div>
         </div>
-        <span className="text-xs text-orange-500 dark:text-orange-400 font-medium group-hover:underline shrink-0 ml-2">
+        <span className="text-xs text-blue-600 dark:text-blue-400 font-medium group-hover:underline shrink-0 ml-2">
           切换模型 &rarr;
         </span>
       </div>
@@ -182,9 +182,9 @@ export const Img2ImgTab: React.FC<Img2ImgTabProps> = ({ onOpenModelModal }) => {
           {!inputImage ? (
             <div
               onClick={() => fileInputRef.current?.click()}
-              className="border-2 border-dashed border-gray-300 dark:border-gray-700 hover:border-orange-500 dark:hover:border-orange-500 rounded-2xl p-6 flex flex-col items-center justify-center cursor-pointer transition-colors group bg-gray-50/50 dark:bg-gray-800/30"
+              className="border-2 border-dashed border-gray-300 dark:border-gray-700 hover:border-blue-500 dark:hover:border-blue-500 rounded-2xl p-6 flex flex-col items-center justify-center cursor-pointer transition-colors group bg-gray-50/50 dark:bg-gray-800/30"
             >
-              <div className="w-12 h-12 rounded-full bg-orange-100 dark:bg-orange-950/40 text-orange-500 flex items-center justify-center mb-2 group-hover:scale-110 transition-transform">
+              <div className="w-12 h-12 rounded-full bg-blue-100 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 flex items-center justify-center mb-2 group-hover:scale-110 transition-transform">
                 <Upload size={22} />
               </div>
               <p className="text-xs font-medium text-gray-700 dark:text-gray-300">
@@ -215,7 +215,7 @@ export const Img2ImgTab: React.FC<Img2ImgTabProps> = ({ onOpenModelModal }) => {
         <div>
           <div className="flex justify-between text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
             <span className="flex items-center space-x-1">
-              <Sliders size={14} className="text-orange-500" />
+              <Sliders size={14} className="text-blue-600 dark:text-blue-400" />
               <span>重绘强度 (Strength): {strength}</span>
             </span>
             <span className="text-[10px] text-gray-400">0.1 (接近原图) ~ 1.0 (大幅重构)</span>
@@ -227,7 +227,7 @@ export const Img2ImgTab: React.FC<Img2ImgTabProps> = ({ onOpenModelModal }) => {
             step="0.05"
             value={strength}
             onChange={(e) => setStrength(Number(e.target.value))}
-            className="w-full accent-orange-500"
+            className="w-full accent-blue-600"
           />
         </div>
 
@@ -239,7 +239,7 @@ export const Img2ImgTab: React.FC<Img2ImgTabProps> = ({ onOpenModelModal }) => {
           <select
             value={sampler}
             onChange={(e) => setSampler(e.target.value)}
-            className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-800/80 border border-gray-200 dark:border-gray-700 rounded-xl text-xs text-gray-900 dark:text-white focus:ring-2 focus:ring-orange-500 focus:outline-none transition-all min-h-[40px]"
+            className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-800/80 border border-gray-200 dark:border-gray-700 rounded-xl text-xs text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:outline-none transition-all min-h-[40px]"
           >
             {SAMPLING_METHODS.map((method) => (
               <option key={method.id} value={method.id}>
@@ -259,7 +259,7 @@ export const Img2ImgTab: React.FC<Img2ImgTabProps> = ({ onOpenModelModal }) => {
             onChange={(e) => setPrompt(e.target.value)}
             rows={3}
             placeholder="描述基于该图片想改变的内容，例如：将其转换为动漫二次元风格，保留主体特征，背景加上绚丽星空..."
-            className="w-full p-3 bg-gray-50 dark:bg-gray-800/80 border border-gray-200 dark:border-gray-700 rounded-xl text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-orange-500 focus:outline-none resize-none transition-all"
+            className="w-full p-3 bg-gray-50 dark:bg-gray-800/80 border border-gray-200 dark:border-gray-700 rounded-xl text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:outline-none resize-none transition-all"
           />
         </div>
 
@@ -273,7 +273,7 @@ export const Img2ImgTab: React.FC<Img2ImgTabProps> = ({ onOpenModelModal }) => {
             value={negativePrompt}
             onChange={(e) => setNegativePrompt(e.target.value)}
             placeholder="不希望出现的特征"
-            className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-800/80 border border-gray-200 dark:border-gray-700 rounded-xl text-xs text-gray-900 dark:text-white focus:ring-2 focus:ring-orange-500 focus:outline-none transition-all min-h-[40px]"
+            className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-800/80 border border-gray-200 dark:border-gray-700 rounded-xl text-xs text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:outline-none transition-all min-h-[40px]"
           />
         </div>
 
@@ -281,7 +281,7 @@ export const Img2ImgTab: React.FC<Img2ImgTabProps> = ({ onOpenModelModal }) => {
         <button
           onClick={handleGenerate}
           disabled={isGenerating}
-          className="w-full py-3.5 bg-gradient-to-r from-orange-500 via-amber-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-white font-semibold rounded-xl text-sm transition-all shadow-md active:scale-[0.99] disabled:opacity-50 min-h-[48px] flex items-center justify-center space-x-2"
+          className="w-full py-3.5 bg-gradient-to-r from-blue-600 via-indigo-600 to-sky-500 hover:from-blue-700 hover:to-indigo-700 text-white font-semibold rounded-xl text-sm transition-all shadow-md active:scale-[0.99] disabled:opacity-50 min-h-[48px] flex items-center justify-center space-x-2"
         >
           {isGenerating ? (
             <>
@@ -313,7 +313,7 @@ export const Img2ImgTab: React.FC<Img2ImgTabProps> = ({ onOpenModelModal }) => {
         <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl p-4 shadow-sm space-y-3">
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold text-gray-800 dark:text-gray-200 flex items-center space-x-1">
-              <ImageIcon size={14} className="text-orange-500" />
+              <ImageIcon size={14} className="text-blue-600 dark:text-blue-400" />
               <span>图生图最新结果</span>
             </span>
             <button

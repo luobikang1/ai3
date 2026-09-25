@@ -32,7 +32,7 @@ export const MobileTabBar: React.FC<MobileTabBarProps> = ({ activeTab, setActive
               onClick={() => setActiveTab(tab.id)}
               className={`flex flex-col items-center justify-center flex-1 py-1 px-1 transition-all duration-200 min-h-[48px] ${
                 isActive
-                  ? 'text-orange-500 dark:text-orange-400 font-semibold scale-105'
+                  ? 'text-blue-600 dark:text-blue-400 font-semibold scale-105'
                   : 'text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
               }`}
             >

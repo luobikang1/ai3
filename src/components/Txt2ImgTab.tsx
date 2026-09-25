@@ -94,7 +94,7 @@ export const Txt2ImgTab: React.FC<Txt2ImgTabProps> = ({ onOpenModelModal, onSwit
           sampler,
           steps,
           guidance,
-          seed: 424242, // Fixed seed for reproducible HD output
+          seed: 424242,
           batchCount,
           computeEngine: settings.computeEngine || 'pollinations',
           sdApiEndpoint: settings.sdApiEndpoint,
@@ -105,7 +105,7 @@ export const Txt2ImgTab: React.FC<Txt2ImgTabProps> = ({ onOpenModelModal, onSwit
           falApiKey: settings.falApiKey,
           openaiApiKey: settings.openaiApiKey,
           customEndpoint: settings.customEndpoint,
-          enhancePrompt: true, // Default enabled for master quality
+          enhancePrompt: true,
         }),
       });
 
@@ -115,7 +115,6 @@ export const Txt2ImgTab: React.FC<Txt2ImgTabProps> = ({ onOpenModelModal, onSwit
         let primaryUrl = data.data.imageUrl || data.data.imageUrls[0];
         let allUrls = data.data.imageUrls || [primaryUrl];
 
-        // Two-Stage Workflow: Sketch -> Super Resolution Upscale
         if (twoStageUpscale) {
           try {
             showToast('阶段二：正在进行 AI 超分放大处理...', 'info');
@@ -134,7 +133,7 @@ export const Txt2ImgTab: React.FC<Txt2ImgTabProps> = ({ onOpenModelModal, onSwit
               allUrls[0] = primaryUrl;
             }
           } catch (e) {
-            console.warn('Super resolution upscale step failed, returning initial high-res sketch', e);
+            console.warn('Super resolution upscale step failed, returning initial sketch', e);
           }
         }
 
@@ -198,15 +197,15 @@ export const Txt2ImgTab: React.FC<Txt2ImgTabProps> = ({ onOpenModelModal, onSwit
     <div className="space-y-4 pb-20">
       {/* High Quality Unlock Banner */}
       {!settings.hfApiKey && !settings.falApiKey && !settings.cfApiToken && (
-        <div className="p-3 bg-gradient-to-r from-amber-500/10 via-orange-500/10 to-amber-500/5 dark:from-amber-950/40 dark:to-transparent border border-amber-300/60 dark:border-amber-800/50 rounded-xl flex items-center justify-between text-xs">
-          <div className="flex items-center space-x-2 text-amber-800 dark:text-amber-300">
-            <Key size={15} className="text-amber-500 shrink-0" />
+        <div className="p-3 bg-gradient-to-r from-blue-500/10 via-indigo-500/10 to-sky-500/5 dark:from-blue-950/40 dark:to-transparent border border-blue-200/60 dark:border-blue-800/50 rounded-xl flex items-center justify-between text-xs">
+          <div className="flex items-center space-x-2 text-blue-900 dark:text-blue-200">
+            <Key size={15} className="text-blue-600 dark:text-blue-400 shrink-0" />
             <span>免费模式生效中！在“设置”中填入自有 HuggingFace 或 Fal Key 可解锁极速 4K 出图</span>
           </div>
           {onOpenSettings && (
             <button
               onClick={onOpenSettings}
-              className="px-2.5 py-1 bg-amber-500 hover:bg-amber-600 text-white text-[11px] font-bold rounded-lg shrink-0 ml-2 shadow-sm transition-colors"
+              className="px-2.5 py-1 bg-blue-600 hover:bg-blue-700 text-white text-[11px] font-bold rounded-lg shrink-0 ml-2 shadow-sm transition-colors"
             >
               配置 Key &rarr;
             </button>
@@ -215,17 +214,17 @@ export const Txt2ImgTab: React.FC<Txt2ImgTabProps> = ({ onOpenModelModal, onSwit
       )}
 
       {/* Active Model & Engine Selector Bar */}
-      <div className="p-3.5 bg-gradient-to-r from-orange-500/10 via-amber-500/10 to-orange-500/5 dark:from-orange-950/30 dark:via-amber-950/20 dark:to-transparent border border-orange-200/50 dark:border-orange-800/40 rounded-xl transition-all space-y-2">
+      <div className="p-3.5 bg-gradient-to-r from-blue-500/10 via-indigo-500/10 to-sky-500/5 dark:from-blue-950/30 dark:via-indigo-950/20 dark:to-transparent border border-blue-200/50 dark:border-blue-800/40 rounded-xl transition-all space-y-2">
         <div
           onClick={onOpenModelModal}
           className="flex items-center justify-between cursor-pointer group"
         >
           <div className="flex items-center space-x-3 overflow-hidden">
-            <div className="w-9 h-9 rounded-lg bg-orange-500 text-white flex items-center justify-center font-bold text-sm shrink-0 shadow-sm">
+            <div className="w-9 h-9 rounded-lg bg-blue-600 text-white flex items-center justify-center font-bold text-sm shrink-0 shadow-sm">
               AI
             </div>
             <div className="truncate">
-              <div className="text-[10px] text-orange-600 dark:text-orange-400 font-medium uppercase tracking-wider">
+              <div className="text-[10px] text-blue-600 dark:text-blue-400 font-medium uppercase tracking-wider">
                 当前画风与预设模型
               </div>
               <div className="text-sm font-semibold text-gray-900 dark:text-white truncate">
@@ -233,21 +232,21 @@ export const Txt2ImgTab: React.FC<Txt2ImgTabProps> = ({ onOpenModelModal, onSwit
               </div>
             </div>
           </div>
-          <span className="text-xs text-orange-500 dark:text-orange-400 font-medium group-hover:underline shrink-0 ml-2">
+          <span className="text-xs text-blue-600 dark:text-blue-400 font-medium group-hover:underline shrink-0 ml-2">
             选择模型 &rarr;
           </span>
         </div>
 
         {/* Quick Compute Engine Selector */}
-        <div className="flex items-center space-x-2 pt-2 border-t border-orange-200/30 dark:border-orange-800/30">
-          <Cpu size={14} className="text-orange-500 shrink-0" />
+        <div className="flex items-center space-x-2 pt-2 border-t border-blue-200/30 dark:border-blue-800/30">
+          <Cpu size={14} className="text-blue-600 dark:text-blue-400 shrink-0" />
           <span className="text-xs font-semibold text-gray-700 dark:text-gray-300 shrink-0">
             基础算力节点:
           </span>
           <select
             value={settings.computeEngine || 'pollinations'}
             onChange={(e) => updateSettings({ computeEngine: e.target.value })}
-            className="flex-1 px-2.5 py-1 bg-white dark:bg-gray-900 border border-orange-300/60 dark:border-orange-800/60 rounded-lg text-xs font-medium text-gray-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-orange-500"
+            className="flex-1 px-2.5 py-1 bg-white dark:bg-gray-900 border border-blue-300/60 dark:border-blue-800/60 rounded-lg text-xs font-medium text-gray-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-blue-500"
           >
             {COMPUTE_ENGINES.map((eng) => (
               <option key={eng.id} value={eng.type}>
@@ -279,7 +278,7 @@ export const Txt2ImgTab: React.FC<Txt2ImgTabProps> = ({ onOpenModelModal, onSwit
               <button
                 type="button"
                 onClick={handleEnhancePrompt}
-                className="flex items-center space-x-1 px-2.5 py-0.5 bg-orange-50 dark:bg-orange-950/50 border border-orange-200 dark:border-orange-800/60 text-orange-600 dark:text-orange-400 rounded-lg text-[11px] font-medium hover:bg-orange-100 transition-colors"
+                className="flex items-center space-x-1 px-2.5 py-0.5 bg-blue-50 dark:bg-blue-950/50 border border-blue-200 dark:border-blue-800/60 text-blue-600 dark:text-blue-400 rounded-lg text-[11px] font-medium hover:bg-blue-100 transition-colors"
               >
                 <Sparkles size={12} />
                 <span>✨ 提示词魔改/优化</span>
@@ -291,7 +290,7 @@ export const Txt2ImgTab: React.FC<Txt2ImgTabProps> = ({ onOpenModelModal, onSwit
             onChange={(e) => setPrompt(e.target.value)}
             rows={3}
             placeholder="描述你想生成的画面细节，例如：一只身穿精美赛博朋克装甲的白狐，夜幕下的霓虹城市，超清细致，电影级打光..."
-            className="w-full p-3 bg-gray-50 dark:bg-gray-800/80 border border-gray-200 dark:border-gray-700 rounded-xl text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-orange-500 focus:outline-none resize-none transition-all"
+            className="w-full p-3 bg-gray-50 dark:bg-gray-800/80 border border-gray-200 dark:border-gray-700 rounded-xl text-sm text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:outline-none resize-none transition-all"
           />
         </div>
 
@@ -306,7 +305,7 @@ export const Txt2ImgTab: React.FC<Txt2ImgTabProps> = ({ onOpenModelModal, onSwit
               onClick={() => setSelectedStyle('none')}
               className={`px-3 py-1.5 rounded-xl font-medium shrink-0 border transition-all ${
                 selectedStyle === 'none'
-                  ? 'bg-orange-500 text-white border-orange-500 shadow-sm'
+                  ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
                   : 'bg-gray-50 dark:bg-gray-800 text-gray-700 dark:text-gray-300 border-gray-200 dark:border-gray-700'
               }`}
             >
@@ -321,7 +320,7 @@ export const Txt2ImgTab: React.FC<Txt2ImgTabProps> = ({ onOpenModelModal, onSwit
                   onClick={() => setSelectedStyle(preset.id)}
                   className={`px-3 py-1.5 rounded-xl font-medium shrink-0 border transition-all ${
                     isSelected
-                      ? 'bg-orange-500 text-white border-orange-500 shadow-sm'
+                      ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
                       : 'bg-gray-50 dark:bg-gray-800 text-gray-700 dark:text-gray-300 border-gray-200 dark:border-gray-700 hover:border-gray-300'
                   }`}
                 >
@@ -336,11 +335,11 @@ export const Txt2ImgTab: React.FC<Txt2ImgTabProps> = ({ onOpenModelModal, onSwit
         <div>
           <div className="flex items-center justify-between mb-1.5">
             <label className="text-xs font-semibold text-gray-700 dark:text-gray-300 flex items-center space-x-1">
-              <Zap size={14} className="text-amber-500" />
+              <Zap size={14} className="text-blue-500" />
               <span>LoRA 微调模型微小风格注入</span>
             </label>
             {selectedLora !== 'none' && (
-              <span className="text-[10px] text-orange-500 font-bold">
+              <span className="text-[10px] text-blue-600 font-bold">
                 权重: {loraWeight}
               </span>
             )}
@@ -351,7 +350,7 @@ export const Txt2ImgTab: React.FC<Txt2ImgTabProps> = ({ onOpenModelModal, onSwit
               onClick={() => setSelectedLora('none')}
               className={`px-3 py-1.5 rounded-xl font-medium shrink-0 border transition-all ${
                 selectedLora === 'none'
-                  ? 'bg-amber-500 text-white border-amber-500 shadow-sm'
+                  ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
                   : 'bg-gray-50 dark:bg-gray-800 text-gray-700 dark:text-gray-300 border-gray-200 dark:border-gray-700'
               }`}
             >
@@ -366,7 +365,7 @@ export const Txt2ImgTab: React.FC<Txt2ImgTabProps> = ({ onOpenModelModal, onSwit
                   onClick={() => setSelectedLora(lora.id)}
                   className={`px-3 py-1.5 rounded-xl font-medium shrink-0 border transition-all ${
                     isSelected
-                      ? 'bg-amber-500 text-white border-amber-500 shadow-sm'
+                      ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
                       : 'bg-gray-50 dark:bg-gray-800 text-gray-700 dark:text-gray-300 border-gray-200 dark:border-gray-700 hover:border-gray-300'
                   }`}
                 >
@@ -387,7 +386,7 @@ export const Txt2ImgTab: React.FC<Txt2ImgTabProps> = ({ onOpenModelModal, onSwit
             type="checkbox"
             checked={twoStageUpscale}
             onChange={(e) => setTwoStageUpscale(e.target.checked)}
-            className="w-4 h-4 accent-orange-500 rounded cursor-pointer"
+            className="w-4 h-4 accent-blue-600 rounded cursor-pointer"
           />
         </div>
 
@@ -399,7 +398,7 @@ export const Txt2ImgTab: React.FC<Txt2ImgTabProps> = ({ onOpenModelModal, onSwit
           <select
             value={sampler}
             onChange={(e) => setSampler(e.target.value)}
-            className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-800/80 border border-gray-200 dark:border-gray-700 rounded-xl text-xs text-gray-900 dark:text-white focus:ring-2 focus:ring-orange-500 focus:outline-none transition-all min-h-[40px]"
+            className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-800/80 border border-gray-200 dark:border-gray-700 rounded-xl text-xs text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:outline-none transition-all min-h-[40px]"
           >
             {SAMPLING_METHODS.map((method) => (
               <option key={method.id} value={method.id}>
@@ -419,7 +418,7 @@ export const Txt2ImgTab: React.FC<Txt2ImgTabProps> = ({ onOpenModelModal, onSwit
             value={negativePrompt}
             onChange={(e) => setNegativePrompt(e.target.value)}
             placeholder="不希望在画面中出现的元素，如：模糊、低画质、变形、多余的手指"
-            className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-800/80 border border-gray-200 dark:border-gray-700 rounded-xl text-xs text-gray-900 dark:text-white focus:ring-2 focus:ring-orange-500 focus:outline-none transition-all min-h-[40px]"
+            className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-800/80 border border-gray-200 dark:border-gray-700 rounded-xl text-xs text-gray-900 dark:text-white focus:ring-2 focus:ring-blue-500 focus:outline-none transition-all min-h-[40px]"
           />
         </div>
 
@@ -435,7 +434,7 @@ export const Txt2ImgTab: React.FC<Txt2ImgTabProps> = ({ onOpenModelModal, onSwit
                 onClick={() => setIsCustomSize(!isCustomSize)}
                 className={`flex items-center space-x-1 text-[11px] font-medium px-2 py-0.5 rounded-lg border transition-colors ${
                   isCustomSize
-                    ? 'bg-orange-50 dark:bg-orange-950/60 border-orange-400 text-orange-600 dark:text-orange-400'
+                    ? 'bg-blue-50 dark:bg-blue-950/60 border-blue-400 text-blue-600 dark:text-blue-400'
                     : 'bg-gray-100 dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300'
                 }`}
               >
@@ -455,7 +454,7 @@ export const Txt2ImgTab: React.FC<Txt2ImgTabProps> = ({ onOpenModelModal, onSwit
                       onClick={() => setAspectRatio(item.value)}
                       className={`flex flex-col items-center justify-center py-2 px-1 rounded-xl text-xs font-medium border transition-all ${
                         isSelected
-                          ? 'bg-orange-500 text-white border-orange-500 shadow-sm'
+                          ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
                           : 'bg-gray-50 dark:bg-gray-800/60 text-gray-700 dark:text-gray-300 border-gray-200 dark:border-gray-700 hover:border-gray-300'
                       }`}
                     >
@@ -479,7 +478,7 @@ export const Txt2ImgTab: React.FC<Txt2ImgTabProps> = ({ onOpenModelModal, onSwit
                       step="64"
                       value={customWidth}
                       onChange={(e) => setCustomWidth(Number(e.target.value))}
-                      className="w-full accent-orange-500"
+                      className="w-full accent-blue-600"
                     />
                   </div>
 
@@ -494,7 +493,7 @@ export const Txt2ImgTab: React.FC<Txt2ImgTabProps> = ({ onOpenModelModal, onSwit
                       step="64"
                       value={customHeight}
                       onChange={(e) => setCustomHeight(Number(e.target.value))}
-                      className="w-full accent-orange-500"
+                      className="w-full accent-blue-600"
                     />
                   </div>
                 </div>
@@ -514,7 +513,7 @@ export const Txt2ImgTab: React.FC<Txt2ImgTabProps> = ({ onOpenModelModal, onSwit
                   onClick={() => setBatchCount(num)}
                   className={`py-2 text-xs font-bold rounded-xl border flex items-center justify-center space-x-1 transition-all ${
                     batchCount === num
-                      ? 'bg-orange-500 text-white border-orange-500 shadow-sm'
+                      ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
                       : 'bg-gray-50 dark:bg-gray-800 text-gray-700 dark:text-gray-300 border-gray-200 dark:border-gray-700'
                   }`}
                 >
@@ -556,7 +555,7 @@ export const Txt2ImgTab: React.FC<Txt2ImgTabProps> = ({ onOpenModelModal, onSwit
                   max="50"
                   value={steps}
                   onChange={(e) => setSteps(Number(e.target.value))}
-                  className="w-full accent-orange-500"
+                  className="w-full accent-blue-600"
                 />
               </div>
 
@@ -572,7 +571,7 @@ export const Txt2ImgTab: React.FC<Txt2ImgTabProps> = ({ onOpenModelModal, onSwit
                   step="0.5"
                   value={guidance}
                   onChange={(e) => setGuidance(Number(e.target.value))}
-                  className="w-full accent-orange-500"
+                  className="w-full accent-blue-600"
                 />
               </div>
             </div>
@@ -583,7 +582,7 @@ export const Txt2ImgTab: React.FC<Txt2ImgTabProps> = ({ onOpenModelModal, onSwit
         <button
           onClick={handleGenerate}
           disabled={isGenerating}
-          className="w-full py-3.5 bg-gradient-to-r from-orange-500 via-amber-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-white font-semibold rounded-xl text-sm transition-all shadow-md active:scale-[0.99] disabled:opacity-50 min-h-[48px] flex items-center justify-center space-x-2"
+          className="w-full py-3.5 bg-gradient-to-r from-blue-600 via-indigo-600 to-sky-500 hover:from-blue-700 hover:to-indigo-700 text-white font-semibold rounded-xl text-sm transition-all shadow-md active:scale-[0.99] disabled:opacity-50 min-h-[48px] flex items-center justify-center space-x-2"
         >
           {isGenerating ? (
             <>
@@ -615,7 +614,7 @@ export const Txt2ImgTab: React.FC<Txt2ImgTabProps> = ({ onOpenModelModal, onSwit
         <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl p-4 shadow-sm space-y-3">
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold text-gray-800 dark:text-gray-200 flex items-center space-x-1">
-              <Sparkles size={14} className="text-orange-500" />
+              <Sparkles size={14} className="text-blue-600 dark:text-blue-400" />
               <span>最新生成结果 ({generatedImg.imageUrls?.length || 1} 张)</span>
             </span>
           </div>
@@ -642,7 +641,7 @@ export const Txt2ImgTab: React.FC<Txt2ImgTabProps> = ({ onOpenModelModal, onSwit
                   {onSwitchToImg2ImgWithRef && (
                     <button
                       onClick={() => onSwitchToImg2ImgWithRef(imgUrl)}
-                      className="px-2.5 py-1.5 bg-black/70 hover:bg-orange-600 text-white rounded-lg text-xs font-medium backdrop-blur-sm transition-colors flex items-center space-x-1 shadow-md"
+                      className="px-2.5 py-1.5 bg-black/70 hover:bg-blue-600 text-white rounded-lg text-xs font-medium backdrop-blur-sm transition-colors flex items-center space-x-1 shadow-md"
                       title="将此图作为图生图参考图"
                     >
                       <ImageIcon size={13} />
@@ -651,7 +650,7 @@ export const Txt2ImgTab: React.FC<Txt2ImgTabProps> = ({ onOpenModelModal, onSwit
                   )}
                   <button
                     onClick={() => handleDownload(imgUrl)}
-                    className="p-1.5 bg-black/70 hover:bg-orange-600 text-white rounded-lg backdrop-blur-sm transition-colors shadow-md"
+                    className="p-1.5 bg-black/70 hover:bg-blue-600 text-white rounded-lg backdrop-blur-sm transition-colors shadow-md"
                     title="下载原图"
                   >
                     <Download size={14} />
