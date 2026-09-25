@@ -5,15 +5,16 @@ import { useApp } from '@/context/AppContext';
 import { ASPECT_RATIOS, SAMPLING_METHODS, COMPUTE_ENGINES, enhancePromptText } from '@/lib/constants';
 import { STYLE_PRESETS } from '@/lib/stylePresets';
 import { LORA_PRESETS } from '@/lib/loraPresets';
-import { Sparkles, Sliders, ChevronDown, Wand2, Download, AlertCircle, Cpu, Layers, Copy, Image as ImageIcon, Maximize2, Zap } from 'lucide-react';
+import { Sparkles, Sliders, ChevronDown, Wand2, Download, AlertCircle, Cpu, Layers, Copy, Image as ImageIcon, Maximize2, Zap, Key } from 'lucide-react';
 import { GeneratedImage } from '@/types';
 
 interface Txt2ImgTabProps {
   onOpenModelModal: () => void;
   onSwitchToImg2ImgWithRef?: (imageUrl: string) => void;
+  onOpenSettings?: () => void;
 }
 
-export const Txt2ImgTab: React.FC<Txt2ImgTabProps> = ({ onOpenModelModal, onSwitchToImg2ImgWithRef }) => {
+export const Txt2ImgTab: React.FC<Txt2ImgTabProps> = ({ onOpenModelModal, onSwitchToImg2ImgWithRef, onOpenSettings }) => {
   const { selectedModel, settings, updateSettings, addHistoryItem, showToast } = useApp();
 
   const [prompt, setPrompt] = useState('');
@@ -31,6 +32,7 @@ export const Txt2ImgTab: React.FC<Txt2ImgTabProps> = ({ onOpenModelModal, onSwit
   const [guidance, setGuidance] = useState(settings.defaultGuidance || 7.5);
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [twoStageUpscale, setTwoStageUpscale] = useState(false);
   const [generatedImg, setGeneratedImg] = useState<GeneratedImage | null>(null);
   const [errorText, setErrorText] = useState('');
 
@@ -88,11 +90,13 @@ export const Txt2ImgTab: React.FC<Txt2ImgTabProps> = ({ onOpenModelModal, onSwit
           height: finalHeight,
           aspectRatio: isCustomSize ? `${finalWidth}x${finalHeight}` : aspectRatio,
           model: selectedModel.id,
+          provider: selectedModel.provider,
           sampler,
           steps,
           guidance,
+          seed: 424242, // Fixed seed for reproducible HD output
           batchCount,
-          computeEngine: settings.computeEngine || 'stable-diffusion',
+          computeEngine: settings.computeEngine || 'pollinations',
           sdApiEndpoint: settings.sdApiEndpoint,
           sdApiKey: settings.sdApiKey,
           cfApiToken: settings.cfApiToken,
@@ -101,14 +105,38 @@ export const Txt2ImgTab: React.FC<Txt2ImgTabProps> = ({ onOpenModelModal, onSwit
           falApiKey: settings.falApiKey,
           openaiApiKey: settings.openaiApiKey,
           customEndpoint: settings.customEndpoint,
+          enhancePrompt: true, // Default enabled for master quality
         }),
       });
 
       const data = await res.json();
 
       if (data.success && (data.data?.imageUrl || (data.data?.imageUrls && data.data.imageUrls.length > 0))) {
-        const primaryUrl = data.data.imageUrl || data.data.imageUrls[0];
-        const allUrls = data.data.imageUrls || [primaryUrl];
+        let primaryUrl = data.data.imageUrl || data.data.imageUrls[0];
+        let allUrls = data.data.imageUrls || [primaryUrl];
+
+        // Two-Stage Workflow: Sketch -> Super Resolution Upscale
+        if (twoStageUpscale) {
+          try {
+            showToast('阶段二：正在进行 AI 超分放大处理...', 'info');
+            const editRes = await fetch('/api/generate/edit-image', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                action: 'upscale',
+                inputImage: primaryUrl,
+                scale: 2,
+              }),
+            });
+            const editJson = await editRes.json();
+            if (editJson.success && editJson.data?.imageUrl) {
+              primaryUrl = editJson.data.imageUrl;
+              allUrls[0] = primaryUrl;
+            }
+          } catch (e) {
+            console.warn('Super resolution upscale step failed, returning initial high-res sketch', e);
+          }
+        }
 
         const newItem: GeneratedImage = {
           id: `img_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
@@ -117,15 +145,15 @@ export const Txt2ImgTab: React.FC<Txt2ImgTabProps> = ({ onOpenModelModal, onSwit
           params: {
             prompt: finalPrompt,
             negativePrompt: finalNegative,
-            width: finalWidth,
-            height: finalHeight,
+            width: twoStageUpscale ? finalWidth * 2 : finalWidth,
+            height: twoStageUpscale ? finalHeight * 2 : finalHeight,
             aspectRatio: isCustomSize ? `${finalWidth}x${finalHeight}` : aspectRatio,
             model: selectedModel.id,
             sampler,
             steps,
             guidance,
             batchCount,
-            computeEngineId: settings.computeEngine || 'stable-diffusion',
+            computeEngineId: settings.computeEngine || 'pollinations',
             stylePreset: selectedStyle,
           },
           createdAt: Date.now(),
@@ -168,6 +196,24 @@ export const Txt2ImgTab: React.FC<Txt2ImgTabProps> = ({ onOpenModelModal, onSwit
 
   return (
     <div className="space-y-4 pb-20">
+      {/* High Quality Unlock Banner */}
+      {!settings.hfApiKey && !settings.falApiKey && !settings.cfApiToken && (
+        <div className="p-3 bg-gradient-to-r from-amber-500/10 via-orange-500/10 to-amber-500/5 dark:from-amber-950/40 dark:to-transparent border border-amber-300/60 dark:border-amber-800/50 rounded-xl flex items-center justify-between text-xs">
+          <div className="flex items-center space-x-2 text-amber-800 dark:text-amber-300">
+            <Key size={15} className="text-amber-500 shrink-0" />
+            <span>免费模式生效中！在“设置”中填入自有 HuggingFace 或 Fal Key 可解锁极速 4K 出图</span>
+          </div>
+          {onOpenSettings && (
+            <button
+              onClick={onOpenSettings}
+              className="px-2.5 py-1 bg-amber-500 hover:bg-amber-600 text-white text-[11px] font-bold rounded-lg shrink-0 ml-2 shadow-sm transition-colors"
+            >
+              配置 Key &rarr;
+            </button>
+          )}
+        </div>
+      )}
+
       {/* Active Model & Engine Selector Bar */}
       <div className="p-3.5 bg-gradient-to-r from-orange-500/10 via-amber-500/10 to-orange-500/5 dark:from-orange-950/30 dark:via-amber-950/20 dark:to-transparent border border-orange-200/50 dark:border-orange-800/40 rounded-xl transition-all space-y-2">
         <div
@@ -199,7 +245,7 @@ export const Txt2ImgTab: React.FC<Txt2ImgTabProps> = ({ onOpenModelModal, onSwit
             基础算力节点:
           </span>
           <select
-            value={settings.computeEngine || 'stable-diffusion'}
+            value={settings.computeEngine || 'pollinations'}
             onChange={(e) => updateSettings({ computeEngine: e.target.value })}
             className="flex-1 px-2.5 py-1 bg-white dark:bg-gray-900 border border-orange-300/60 dark:border-orange-800/60 rounded-lg text-xs font-medium text-gray-900 dark:text-white focus:outline-none focus:ring-1 focus:ring-orange-500"
           >
@@ -329,6 +375,20 @@ export const Txt2ImgTab: React.FC<Txt2ImgTabProps> = ({ onOpenModelModal, onSwit
               );
             })}
           </div>
+        </div>
+
+        {/* Two-Stage Workflow Toggle */}
+        <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800/50 rounded-xl border border-gray-200 dark:border-gray-700 text-xs">
+          <div>
+            <div className="font-semibold text-gray-800 dark:text-gray-200">两段式出图流程 (草图生成 &rarr; 超分放大)</div>
+            <div className="text-[10px] text-gray-400">初版画作生成后自动调用 2x AI 细节二次增强放大</div>
+          </div>
+          <input
+            type="checkbox"
+            checked={twoStageUpscale}
+            onChange={(e) => setTwoStageUpscale(e.target.checked)}
+            className="w-4 h-4 accent-orange-500 rounded cursor-pointer"
+          />
         </div>
 
         {/* Sampling Method Selector */}
@@ -563,7 +623,7 @@ export const Txt2ImgTab: React.FC<Txt2ImgTabProps> = ({ onOpenModelModal, onSwit
           <div
             className={`grid gap-3 ${
               (generatedImg.imageUrls?.length || 1) > 1
-                ? 'grid-cols-1 sm:grid-cols-2'
+                ? 'grid-cols-1 md:grid-cols-2'
                 : 'grid-cols-1'
             }`}
           >

@@ -35,11 +35,12 @@ function MainApp() {
       <Toast />
       <Navbar onOpenAuthModal={() => setIsAuthModalOpen(true)} />
 
-      <main className="flex-1 max-w-4xl w-full mx-auto p-3 sm:p-4 md:p-6">
+      <main className="flex-1 max-w-5xl w-full mx-auto p-3 sm:p-4 md:p-6">
         {activeTab === 'txt2img' && (
           <Txt2ImgTab
             onOpenModelModal={() => setIsModelModalOpen(true)}
             onSwitchToImg2ImgWithRef={handleSwitchToImg2ImgWithRef}
+            onOpenSettings={() => setActiveTab('settings')}
           />
         )}
         {activeTab === 'img2img' && (
