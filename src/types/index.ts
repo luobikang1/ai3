@@ -44,16 +44,16 @@ export interface GenerationParams {
   negativePrompt?: string;
   width: number;
   height: number;
-  aspectRatio: string; // '1:1' | '16:9' | '9:16' | '4:3' | '3:4'
+  aspectRatio: string;
   model: string;
-  sampler?: string; // 'Euler a' | 'DPM++ 2M Karras' | 'DPM++ SDE Karras' | 'DDIM' | 'LCM' | 'UniPC'
+  sampler?: string;
   steps?: number;
   guidance?: number;
-  strength?: number; // for img2img
+  strength?: number;
   styleStrength?: number;
   seed?: number;
-  batchCount?: number; // 1, 2, 4
-  inputImage?: string; // base64 or URL for img2img
+  batchCount?: number;
+  inputImage?: string;
   computeEngineId?: string;
   enhancePrompt?: boolean;
   stylePreset?: string;
@@ -63,8 +63,8 @@ export interface GenerationParams {
 
 export interface GeneratedImage {
   id: string;
-  imageUrl: string; // single or primary URL
-  imageUrls?: string[]; // for batch generation
+  imageUrl: string;
+  imageUrls?: string[];
   params: GenerationParams;
   createdAt: number;
   modelName: string;
@@ -78,14 +78,16 @@ export interface UserAccount {
 }
 
 export interface UserSettings {
-  computeEngine: string; // 'stable-diffusion' | 'cloudflare-ai' | 'huggingface' | 'fal-ai' | 'pollinations' | 'custom'
+  computeEngine: string;
   sdApiEndpoint?: string;
   sdApiKey?: string;
   cfApiToken?: string;
   cfAccountId?: string;
+  siliconApiKey?: string;
+  openaiApiKey?: string;
+  stabilityApiKey?: string;
   hfApiKey?: string;
   falApiKey?: string;
-  openaiApiKey?: string;
   customEndpoint?: string;
   customModels?: AIModel[];
   defaultModel: string;

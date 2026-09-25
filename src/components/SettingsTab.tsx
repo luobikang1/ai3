@@ -1,228 +1,276 @@
-'use client';
-
 import React, { useState } from 'react';
 import { useApp } from '@/context/AppContext';
-import { Settings, Key, Server, Moon, Sun, RotateCcw, Database, ShieldCheck, Image as ImageIcon } from 'lucide-react';
-import { DEFAULT_SETTINGS } from '@/lib/constants';
+import { COMPUTE_ENGINES } from '@/lib/constants';
 
 export const SettingsTab: React.FC = () => {
-  const { settings, updateSettings, auth, showToast } = useApp();
+  const { settings, updateSettings, showToast, isDarkMode, toggleDarkMode } = useApp();
 
+  const [computeEngine, setComputeEngine] = useState(settings.computeEngine || 'pollinations');
   const [cfApiToken, setCfApiToken] = useState(settings.cfApiToken || '');
   const [cfAccountId, setCfAccountId] = useState(settings.cfAccountId || '');
+  const [siliconApiKey, setSiliconApiKey] = useState(settings.siliconApiKey || '');
+  const [openaiApiKey, setOpenaiApiKey] = useState(settings.openaiApiKey || '');
+  const [stabilityApiKey, setStabilityApiKey] = useState(settings.stabilityApiKey || '');
   const [hfApiKey, setHfApiKey] = useState(settings.hfApiKey || '');
   const [falApiKey, setFalApiKey] = useState(settings.falApiKey || '');
-  const [sdApiEndpoint, setSdApiEndpoint] = useState(settings.sdApiEndpoint || '');
-  const [sdApiKey, setSdApiKey] = useState(settings.sdApiKey || '');
 
-  // Account modification form state
-  const [newPassword, setNewPassword] = useState('');
-  const [bgImageInput, setBgImageInput] = useState('');
+  const [defaultModel, setDefaultModel] = useState(settings.defaultModel || 'black-forest-labs/FLUX.1-schnell');
+  const [defaultBatchCount, setDefaultBatchCount] = useState(settings.defaultBatchCount || 1);
+  const [defaultSteps, setDefaultSteps] = useState(settings.defaultSteps || 25);
+  const [defaultGuidance, setDefaultGuidance] = useState(settings.defaultGuidance || 8.0);
+  const [defaultNegativePrompt, setDefaultNegativePrompt] = useState(settings.defaultNegativePrompt || '');
 
-  const handleSaveKeys = (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSave = () => {
     updateSettings({
+      computeEngine,
       cfApiToken: cfApiToken.trim(),
       cfAccountId: cfAccountId.trim(),
+      siliconApiKey: siliconApiKey.trim(),
+      openaiApiKey: openaiApiKey.trim(),
+      stabilityApiKey: stabilityApiKey.trim(),
       hfApiKey: hfApiKey.trim(),
       falApiKey: falApiKey.trim(),
-      sdApiEndpoint: sdApiEndpoint.trim(),
-      sdApiKey: sdApiKey.trim(),
+      defaultModel,
+      defaultBatchCount: Number(defaultBatchCount),
+      defaultSteps: Number(defaultSteps),
+      defaultGuidance: Number(defaultGuidance),
+      defaultNegativePrompt: defaultNegativePrompt.trim(),
     });
-    showToast('API Key 与算力节点设置保存成功！', 'success');
-  };
-
-  const handleSaveWallpaper = () => {
-    if (bgImageInput.trim()) {
-      localStorage.setItem('fox_ai_custom_login_bg', bgImageInput.trim());
-      showToast('管理员全屏背景壁纸更新成功！', 'success');
-      setBgImageInput('');
-    }
+    showToast('设置已成功保存！', 'success');
   };
 
   const handleResetFactory = () => {
-    if (confirm('确定要恢复白狐AI三出厂默认设置吗？已配置的 API Key 和极速选项将被重置。')) {
-      updateSettings(DEFAULT_SETTINGS);
-      setCfApiToken('');
-      setCfAccountId('');
-      setHfApiKey('');
-      setFalApiKey('');
-      setSdApiEndpoint('');
-      setSdApiKey('');
-      showToast('已恢复出厂配置', 'success');
+    if (confirm('确定要恢复出厂设置吗？这将重置所有 Key 和偏好配置。')) {
+      localStorage.clear();
+      window.location.reload();
     }
   };
 
   return (
-    <div className="space-y-4 pb-20 max-w-3xl mx-auto">
-      {/* Title Bar */}
-      <div className="flex items-center space-x-2 p-3.5 bg-gradient-to-r from-blue-500/10 via-indigo-500/10 to-sky-500/5 dark:from-blue-950/30 dark:to-transparent border border-blue-200/50 dark:border-blue-800/40 rounded-xl">
-        <Settings size={20} className="text-blue-600 dark:text-blue-400" />
+    <div className="max-w-3xl mx-auto space-y-6 pb-20">
+      <div className="bg-gradient-to-r from-blue-600 to-indigo-600 rounded-2xl p-6 text-white shadow-xl flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
         <div>
-          <h2 className="font-bold text-sm text-gray-900 dark:text-white">系统设置与节点密钥配置</h2>
-          <p className="text-[11px] text-gray-500 dark:text-gray-400">全部 Key 均本地加密存储，支持配置独立算力源</p>
+          <h2 className="text-2xl font-black tracking-tight flex items-center gap-2">
+            ⚙️ 融合算力与全域设置
+          </h2>
+          <p className="text-blue-100 text-xs mt-1">
+            配置 Cloudflare, SiliconFlow, OpenAI, Stability AI 等全网算力 Key，实现低延迟无缝出图
+          </p>
         </div>
+        <button
+          onClick={handleSave}
+          className="px-6 py-2.5 bg-white text-blue-600 hover:bg-blue-50 font-bold rounded-xl shadow-lg transition duration-200 text-sm whitespace-nowrap self-stretch md:self-auto text-center"
+        >
+          保存全局配置
+        </button>
       </div>
 
-      {/* Theme & Display Options */}
-      <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl p-4 shadow-sm space-y-3">
-        <h3 className="font-bold text-xs text-gray-900 dark:text-white flex items-center space-x-1.5">
-          <Sun size={15} className="text-amber-500" />
-          <span>界面与极客偏好设置</span>
+      <div className="bg-white dark:bg-slate-800 rounded-2xl p-5 border border-slate-200/80 dark:border-slate-700/80 shadow-sm space-y-5">
+        <h3 className="text-base font-extrabold text-slate-800 dark:text-white flex items-center gap-2">
+          🚀 默认算力引擎 (Compute Engine)
         </h3>
 
-        <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800/50 rounded-xl">
-          <div className="space-y-0.5">
-            <div className="text-xs font-semibold text-gray-800 dark:text-gray-200">夜间深色模式</div>
-            <div className="text-[10px] text-gray-400">切换 OLED 极黑风格护眼模式</div>
-          </div>
-          <button
-            onClick={() => updateSettings({ darkMode: !settings.darkMode })}
-            className={`p-2 rounded-xl border transition-colors ${
-              settings.darkMode
-                ? 'bg-blue-600 text-white border-blue-600'
-                : 'bg-white text-gray-700 border-gray-300'
-            }`}
-          >
-            {settings.darkMode ? <Moon size={16} /> : <Sun size={16} />}
-          </button>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          {COMPUTE_ENGINES.map((engine) => (
+            <label
+              key={engine.id}
+              className={`flex items-start p-3.5 rounded-xl border cursor-pointer transition ${
+                computeEngine === engine.id
+                  ? 'border-blue-500 bg-blue-50/60 dark:bg-blue-900/20 ring-2 ring-blue-500/20'
+                  : 'border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/50 hover:bg-slate-100 dark:hover:bg-slate-700/50'
+              }`}
+            >
+              <input
+                type="radio"
+                name="computeEngine"
+                value={engine.id}
+                checked={computeEngine === engine.id}
+                onChange={(e) => setComputeEngine(e.target.value)}
+                className="mt-1 text-blue-600 focus:ring-blue-500"
+              />
+              <div className="ml-3">
+                <div className="text-sm font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2">
+                  {engine.name}
+                  {engine.isDefault && (
+                    <span className="text-[10px] px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300 font-semibold">
+                      免费免 Key
+                    </span>
+                  )}
+                </div>
+                <div className="text-xs text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">
+                  {engine.description}
+                </div>
+              </div>
+            </label>
+          ))}
         </div>
-      </div>
 
-      {/* API Keys Form */}
-      <form onSubmit={handleSaveKeys} className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl p-4 shadow-sm space-y-4">
-        <h3 className="font-bold text-xs text-gray-900 dark:text-white flex items-center space-x-1.5">
-          <Key size={15} className="text-blue-600 dark:text-blue-400" />
-          <span>Cloudflare / HuggingFace / Fal API 密钥配置</span>
-        </h3>
+        <div className="pt-4 border-t border-slate-200 dark:border-slate-700 space-y-4">
+          <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">
+            开放算力平台 Key 配置 (可选，配后提升画质与速度)
+          </h4>
 
-        {/* Cloudflare Workers AI */}
-        <div className="space-y-2 p-3 bg-gray-50 dark:bg-gray-800/40 rounded-xl border border-gray-100 dark:border-gray-800">
-          <div className="text-xs font-bold text-gray-800 dark:text-gray-200 flex items-center space-x-1">
-            <Server size={13} className="text-blue-500" />
-            <span>Cloudflare Workers AI (Flux & 70+模型)</span>
+          <div>
+            <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+              SiliconFlow (硅基流动 API Key)
+            </label>
+            <input
+              type="password"
+              placeholder="sk-..."
+              value={siliconApiKey}
+              onChange={(e) => setSiliconApiKey(e.target.value)}
+              className="w-full px-3.5 py-2 rounded-xl text-xs bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-800 dark:text-slate-100"
+            />
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+          <div>
+            <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+              OpenAI API Key (DALL-E 3)
+            </label>
+            <input
+              type="password"
+              placeholder="sk-..."
+              value={openaiApiKey}
+              onChange={(e) => setOpenaiApiKey(e.target.value)}
+              className="w-full px-3.5 py-2 rounded-xl text-xs bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-800 dark:text-slate-100"
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+              Stability AI API Key (SDXL 1.0)
+            </label>
+            <input
+              type="password"
+              placeholder="sk-..."
+              value={stabilityApiKey}
+              onChange={(e) => setStabilityApiKey(e.target.value)}
+              className="w-full px-3.5 py-2 rounded-xl text-xs bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-800 dark:text-slate-100"
+            />
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <div>
-              <label className="block text-[11px] text-gray-500 dark:text-gray-400 mb-1">
-                Account ID (账户 ID)
+              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                Cloudflare Account ID
               </label>
               <input
                 type="text"
+                placeholder="例如: a1b2c3d4..."
                 value={cfAccountId}
                 onChange={(e) => setCfAccountId(e.target.value)}
-                placeholder="例如: 8aef523..."
-                className="w-full px-3 py-1.5 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-xs"
+                className="w-full px-3.5 py-2 rounded-xl text-xs bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-800 dark:text-slate-100"
               />
             </div>
-
             <div>
-              <label className="block text-[11px] text-gray-500 dark:text-gray-400 mb-1">
-                API Token (访问令牌)
+              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+                Cloudflare AI Token
               </label>
               <input
                 type="password"
+                placeholder="例如: Bearer token..."
                 value={cfApiToken}
                 onChange={(e) => setCfApiToken(e.target.value)}
-                placeholder="Cloudflare AI Token"
-                className="w-full px-3 py-1.5 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-xs"
+                className="w-full px-3.5 py-2 rounded-xl text-xs bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-800 dark:text-slate-100"
               />
-            </div>
-          </div>
-        </div>
-
-        {/* HuggingFace & Fal.ai */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <div className="p-3 bg-gray-50 dark:bg-gray-800/40 rounded-xl border border-gray-100 dark:border-gray-800 space-y-1.5">
-            <label className="block text-xs font-bold text-gray-800 dark:text-gray-200">
-              HuggingFace Inference API Key
-            </label>
-            <input
-              type="password"
-              value={hfApiKey}
-              onChange={(e) => setHfApiKey(e.target.value)}
-              placeholder="hf_xxxxxxxxxxxxxxxx"
-              className="w-full px-3 py-1.5 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-xs"
-            />
-          </div>
-
-          <div className="p-3 bg-gray-50 dark:bg-gray-800/40 rounded-xl border border-gray-100 dark:border-gray-800 space-y-1.5">
-            <label className="block text-xs font-bold text-gray-800 dark:text-gray-200">
-              Fal.ai High-Performance Key
-            </label>
-            <input
-              type="password"
-              value={falApiKey}
-              onChange={(e) => setFalApiKey(e.target.value)}
-              placeholder="fal_key_xxxxxxx"
-              className="w-full px-3 py-1.5 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-xs"
-            />
-          </div>
-        </div>
-
-        {/* Custom SD Endpoint */}
-        <div className="p-3 bg-gray-50 dark:bg-gray-800/40 rounded-xl border border-gray-100 dark:border-gray-800 space-y-2">
-          <label className="block text-xs font-bold text-gray-800 dark:text-gray-200">
-            自定义 Stable Diffusion WebUI / ComfyUI 专属私有 API 地址
-          </label>
-          <input
-            type="text"
-            value={sdApiEndpoint}
-            onChange={(e) => setSdApiEndpoint(e.target.value)}
-            placeholder="http://127.0.0.1:7860 或云端反代域名"
-            className="w-full px-3 py-1.5 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-700 rounded-lg text-xs"
-          />
-        </div>
-
-        <button
-          type="submit"
-          className="w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl text-xs transition-colors shadow-sm"
-        >
-          保存所有节点密钥配置
-        </button>
-      </form>
-
-      {/* Admin Account & Wallpaper Settings */}
-      <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-2xl p-4 shadow-sm space-y-3">
-        <h3 className="font-bold text-xs text-gray-900 dark:text-white flex items-center space-x-1.5">
-          <ShieldCheck size={15} className="text-blue-600" />
-          <span>管理员全局登录壁纸配置</span>
-        </h3>
-
-        <div className="space-y-2 text-xs">
-          <div>
-            <label className="block text-[11px] text-gray-500 mb-1">自定义全屏登录背景壁纸 URL</label>
-            <div className="flex space-x-2">
-              <input
-                type="text"
-                value={bgImageInput}
-                onChange={(e) => setBgImageInput(e.target.value)}
-                placeholder="输入网络图片 URL 地址"
-                className="flex-1 px-3 py-1.5 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-xs"
-              />
-              <button
-                type="button"
-                onClick={handleSaveWallpaper}
-                className="px-3 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-semibold shrink-0"
-              >
-                设置壁纸
-              </button>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Factory Reset Action */}
-      <div className="pt-2 flex justify-end">
-        <button
-          type="button"
-          onClick={handleResetFactory}
-          className="flex items-center space-x-1 px-4 py-2 bg-gray-100 hover:bg-red-50 dark:bg-gray-800 dark:hover:bg-red-950/40 text-gray-600 dark:text-gray-300 hover:text-red-600 rounded-xl text-xs font-medium transition-colors"
-        >
-          <RotateCcw size={14} />
-          <span>恢复白狐AI三出厂默认设置</span>
-        </button>
+      <div className="bg-white dark:bg-slate-800 rounded-2xl p-5 border border-slate-200/80 dark:border-slate-700/80 shadow-sm space-y-4">
+        <h3 className="text-base font-extrabold text-slate-800 dark:text-white flex items-center gap-2">
+          🎯 出厂预设与生图偏好
+        </h3>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div>
+            <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+              默认单次生成张数
+            </label>
+            <select
+              value={defaultBatchCount}
+              onChange={(e) => setDefaultBatchCount(Number(e.target.value))}
+              className="w-full px-3.5 py-2 rounded-xl text-xs bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-800 dark:text-slate-100"
+            >
+              <option value={1}>1 张 (默认极速)</option>
+              <option value={2}>2 张 (并行抽卡)</option>
+              <option value={4}>4 张 (矩阵四格)</option>
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+              默认采样步数 (Steps)
+            </label>
+            <input
+              type="number"
+              min={10}
+              max={50}
+              value={defaultSteps}
+              onChange={(e) => setDefaultSteps(Number(e.target.value))}
+              className="w-full px-3.5 py-2 rounded-xl text-xs bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-800 dark:text-slate-100"
+            />
+          </div>
+
+          <div>
+            <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+              引导系数 (CFG Scale)
+            </label>
+            <input
+              type="number"
+              step={0.5}
+              min={1}
+              max={20}
+              value={defaultGuidance}
+              onChange={(e) => setDefaultGuidance(Number(e.target.value))}
+              className="w-full px-3.5 py-2 rounded-xl text-xs bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-800 dark:text-slate-100"
+            />
+          </div>
+        </div>
+
+        <div>
+          <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+            通用底线反向提示词 (Negative Prompt)
+          </label>
+          <textarea
+            rows={2}
+            value={defaultNegativePrompt}
+            onChange={(e) => setDefaultNegativePrompt(e.target.value)}
+            className="w-full p-3 rounded-xl text-xs bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-800 dark:text-slate-100"
+          />
+        </div>
+      </div>
+
+      <div className="bg-white dark:bg-slate-800 rounded-2xl p-5 border border-slate-200/80 dark:border-slate-700/80 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-4">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-blue-50 dark:bg-slate-700 flex items-center justify-center text-lg">
+            {isDarkMode ? '🌙' : '☀️'}
+          </div>
+          <div>
+            <div className="text-sm font-extrabold text-slate-800 dark:text-slate-100">
+              主题外观 (深色/浅色模式)
+            </div>
+            <div className="text-xs text-slate-500 dark:text-slate-400">
+              当前为 {isDarkMode ? '夜间夜光深色模式' : '日间极简浅色模式'}
+            </div>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-3 w-full sm:w-auto">
+          <button
+            onClick={toggleDarkMode}
+            className="flex-1 sm:flex-none px-4 py-2 rounded-xl text-xs font-bold bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-600 transition"
+          >
+            切换模式
+          </button>
+          <button
+            onClick={handleResetFactory}
+            className="flex-1 sm:flex-none px-4 py-2 rounded-xl text-xs font-bold bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400 hover:bg-rose-100 border border-rose-200 dark:border-rose-900 transition"
+          >
+            恢复出厂设置
+          </button>
+        </div>
       </div>
     </div>
   );

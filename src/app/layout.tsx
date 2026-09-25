@@ -1,16 +1,13 @@
-import type { Metadata, Viewport } from "next";
-import "./globals.css";
+import type { Metadata } from 'next';
+import './globals.css';
+import { AppProvider } from '@/context/AppContext';
 
 export const metadata: Metadata = {
-  title: "白狐AI三 - 智能AI绘图与图像生成平台",
-  description: "白狐AI三，轻量极速、移动端友好的 AI 绘图与图像二次生成平台，支持 Cloudflare Workers AI 与公共模型，极速部署。",
-};
-
-export const viewport: Viewport = {
-  width: "device-width",
-  initialScale: 1,
-  maximumScale: 1,
-  userScalable: false,
+  title: '白狐AI三',
+  description: '简洁、极速、无数据库依赖的 AI 绘图 Web 工具',
+  manifest: '/manifest.json',
+  themeColor: '#2563eb',
+  viewport: 'width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no',
 };
 
 export default function RootLayout({
@@ -19,9 +16,14 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="zh-CN" className="scroll-smooth">
-      <body className="antialiased min-h-screen selection:bg-orange-500 selection:text-white">
-        {children}
+    <html lang="zh-CN" suppressHydrationWarning>
+      <head>
+        <link rel="icon" href="/favicon.ico" sizes="any" />
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+      </head>
+      <body className="antialiased bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-100 transition-colors duration-200">
+        <AppProvider>{children}</AppProvider>
       </body>
     </html>
   );
