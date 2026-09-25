@@ -1,19 +1,20 @@
 import React, { useState, useRef } from 'react';
 import { useApp } from '@/context/AppContext';
-import { ASPECT_RATIOS } from '@/lib/constants';
+import { ASPECT_RATIOS, SAMPLING_METHODS, SCHEDULER_TYPES } from '@/lib/constants';
 
 export const Img2ImgTab: React.FC = () => {
   const {
     currentPrompt,
     setCurrentPrompt,
-    negativePrompt,
     selectedModel,
     styleStrength,
     setStyleStrength,
     aspectRatio,
     setAspectRatio,
     steps,
+    setSteps,
     guidance,
+    setGuidance,
     generateImage,
     isGenerating,
     lastGeneratedImage,
@@ -22,6 +23,14 @@ export const Img2ImgTab: React.FC = () => {
 
   const [inputImage, setInputImage] = useState<string | null>(null);
   const [imageStrength, setImageStrength] = useState(0.65);
+  const [customWidth, setCustomWidth] = useState(1024);
+  const [customHeight, setCustomHeight] = useState(1024);
+  const [useCustomDimensions, setUseCustomDimensions] = useState(false);
+  const [showAdvancedTuning, setShowAdvancedTuning] = useState(false);
+  const [sampler, setSampler] = useState('Euler a');
+  const [scheduler, setScheduler] = useState('Karras');
+  const [seed, setSeed] = useState<number | undefined>(undefined);
+
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -68,30 +77,23 @@ export const Img2ImgTab: React.FC = () => {
     generateImage('image-to-image', {
       inputImage,
       strength: imageStrength,
+      customWidth: useCustomDimensions ? customWidth : undefined,
+      customHeight: useCustomDimensions ? customHeight : undefined,
+      sampler,
+      scheduler,
+      seed,
     });
   };
 
   return (
-    <div className="space-y-6 pb-20">
-      {/* Top Banner */}
-      <div className="bg-gradient-to-r from-blue-600 to-indigo-600 rounded-2xl p-5 text-white shadow-lg flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-        <div>
-          <h2 className="text-xl font-black tracking-tight flex items-center gap-2">
-            🖼️ 图像生成图像 (Img2Img 垫图/重绘)
-          </h2>
-          <p className="text-blue-100 text-xs mt-1">
-            上传参考图，控制重绘相似度，基于现有构图二次重构 AI 大作
-          </p>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+    <div className="space-y-4 pb-20">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
         {/* Left Control Area */}
-        <div className="lg:col-span-7 space-y-5">
+        <div className="lg:col-span-7 space-y-4">
           {/* Reference Image Upload Box */}
-          <div className="bg-white dark:bg-slate-800 rounded-2xl p-4 border border-slate-200/80 dark:border-slate-700/80 shadow-sm space-y-3">
+          <div className="bg-white dark:bg-slate-900 rounded-2xl p-4 border border-slate-200 dark:border-slate-800 shadow-sm space-y-3">
             <div className="flex items-center justify-between">
-              <span className="text-xs font-extrabold text-slate-800 dark:text-slate-200">
+              <span className="text-xs font-black text-slate-800 dark:text-slate-200">
                 1. 上传垫图 / 参考图像
               </span>
               {inputImage && (
@@ -113,35 +115,32 @@ export const Img2ImgTab: React.FC = () => {
             />
 
             {inputImage ? (
-              <div className="relative rounded-xl overflow-hidden border border-slate-200 dark:border-slate-700 max-h-64 bg-slate-950 flex items-center justify-center">
+              <div className="relative rounded-xl overflow-hidden border border-slate-200 dark:border-slate-800 max-h-56 bg-slate-950 flex items-center justify-center">
                 <img
                   src={inputImage}
                   alt="Reference uploaded"
-                  className="max-h-64 w-auto object-contain"
+                  className="max-h-56 w-auto object-contain"
                 />
               </div>
             ) : (
               <button
                 onClick={() => fileInputRef.current?.click()}
-                className="w-full py-12 rounded-xl border-2 border-dashed border-slate-300 dark:border-slate-700 hover:border-blue-500 bg-slate-50/50 dark:bg-slate-900/50 transition flex flex-col items-center justify-center gap-2 group"
+                className="w-full py-10 rounded-xl border-2 border-dashed border-slate-300 dark:border-slate-800 hover:border-blue-500 bg-slate-50/50 dark:bg-slate-950/50 transition flex flex-col items-center justify-center gap-2 group"
               >
-                <div className="w-12 h-12 rounded-2xl bg-blue-50 dark:bg-slate-800 text-blue-600 dark:text-blue-400 flex items-center justify-center text-xl group-hover:scale-110 transition">
+                <div className="w-10 h-10 rounded-xl bg-blue-50 dark:bg-slate-800 text-blue-600 flex items-center justify-center text-lg">
                   📤
                 </div>
-                <div className="text-xs font-extrabold text-slate-700 dark:text-slate-300">
+                <div className="text-xs font-black text-slate-700 dark:text-slate-300">
                   点击或拖拽上传参考图
-                </div>
-                <div className="text-[10px] text-slate-400">
-                  支持 PNG, JPG, WEBP (最大 10MB)
                 </div>
               </button>
             )}
           </div>
 
           {/* Denoising Strength */}
-          <div className="bg-white dark:bg-slate-800 rounded-2xl p-4 border border-slate-200/80 dark:border-slate-700/80 shadow-sm space-y-2">
-            <div className="flex items-center justify-between text-xs font-extrabold text-slate-800 dark:text-slate-200">
-              <span>2. 参考图重绘强度 (Denoising Strength)</span>
+          <div className="bg-white dark:bg-slate-900 rounded-2xl p-4 border border-slate-200 dark:border-slate-800 shadow-sm space-y-2">
+            <div className="flex items-center justify-between text-xs font-black text-slate-800 dark:text-slate-200">
+              <span>2. 重绘强度 (Denoising Strength)</span>
               <span className="text-blue-600 font-bold">{imageStrength}</span>
             </div>
             <input
@@ -151,49 +150,96 @@ export const Img2ImgTab: React.FC = () => {
               step={0.05}
               value={imageStrength}
               onChange={(e) => setImageStrength(Number(e.target.value))}
-              className="w-full h-1.5 bg-slate-200 dark:bg-slate-700 rounded-lg appearance-none cursor-pointer accent-blue-600"
+              className="w-full h-1.5 bg-slate-200 dark:bg-slate-800 rounded-lg appearance-none cursor-pointer accent-blue-600"
             />
-            <div className="flex justify-between text-[10px] text-slate-400">
-              <span>0.1 (高保留原图构图)</span>
-              <span>0.95 (大幅二次创意)</span>
-            </div>
           </div>
 
           {/* Prompt */}
-          <div className="bg-white dark:bg-slate-800 rounded-2xl p-4 border border-slate-200/80 dark:border-slate-700/80 shadow-sm space-y-2">
-            <label className="text-xs font-extrabold text-slate-800 dark:text-slate-200 block">
+          <div className="bg-white dark:bg-slate-900 rounded-2xl p-4 border border-slate-200 dark:border-slate-800 shadow-sm space-y-2">
+            <label className="text-xs font-black text-slate-800 dark:text-slate-200 block">
               3. 二次生成提示词 (Prompt)
             </label>
             <textarea
               rows={3}
               value={currentPrompt}
               onChange={(e) => setCurrentPrompt(e.target.value)}
-              placeholder="描述需要在参考图基础上修改或增加的元素..."
-              className="w-full p-3 rounded-xl bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-xs text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500 transition resize-none"
+              placeholder="描述需要在参考图基础上修改的细节..."
+              className="w-full p-3 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-xs text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500 transition resize-none"
             />
           </div>
 
-          {/* Aspect Ratios */}
-          <div className="bg-white dark:bg-slate-800 rounded-2xl p-4 border border-slate-200/80 dark:border-slate-700/80 shadow-sm space-y-3">
-            <div className="text-xs font-extrabold text-slate-800 dark:text-slate-200">
-              4. 输出画布比例
+          {/* Aspect Ratios & Dimensions */}
+          <div className="bg-white dark:bg-slate-900 rounded-2xl p-4 border border-slate-200 dark:border-slate-800 shadow-sm space-y-3">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-black text-slate-800 dark:text-slate-200">
+                4. 输出画幅比例与尺寸
+              </span>
+              <button
+                onClick={() => setUseCustomDimensions(!useCustomDimensions)}
+                className="text-[11px] px-2.5 py-1 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 rounded-lg font-bold"
+              >
+                {useCustomDimensions ? '切换预设比例' : '⚙️ 自定义像素 (W×H)'}
+              </button>
             </div>
-            <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
-              {ASPECT_RATIOS.map((ratio) => (
-                <button
-                  key={ratio.value}
-                  onClick={() => setAspectRatio(ratio.value)}
-                  className={`p-2 rounded-xl text-xs font-bold border text-center transition flex flex-col items-center justify-center gap-1 ${
-                    aspectRatio === ratio.value
-                      ? 'border-blue-500 bg-blue-50/80 dark:bg-blue-900/40 text-blue-600 dark:text-blue-300'
-                      : 'border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-900/50 text-slate-600 dark:text-slate-300'
-                  }`}
-                >
-                  <span className="text-sm">{ratio.icon}</span>
-                  <span className="text-[11px]">{ratio.label}</span>
-                </button>
-              ))}
-            </div>
+
+            {useCustomDimensions ? (
+              <div className="p-3 bg-slate-50 dark:bg-slate-950 rounded-xl space-y-3 border border-slate-200 dark:border-slate-800">
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <div className="flex justify-between text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1">
+                      <span>宽度:</span>
+                      <span className="text-blue-600">{customWidth} px</span>
+                    </div>
+                    <input
+                      type="range"
+                      min={512}
+                      max={1536}
+                      step={64}
+                      value={customWidth}
+                      onChange={(e) => setCustomWidth(Number(e.target.value))}
+                      className="w-full h-1.5 bg-slate-200 dark:bg-slate-800 rounded-lg appearance-none cursor-pointer accent-blue-600"
+                    />
+                  </div>
+
+                  <div>
+                    <div className="flex justify-between text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1">
+                      <span>高度:</span>
+                      <span className="text-blue-600">{customHeight} px</span>
+                    </div>
+                    <input
+                      type="range"
+                      min={512}
+                      max={1536}
+                      step={64}
+                      value={customHeight}
+                      onChange={(e) => setCustomHeight(Number(e.target.value))}
+                      className="w-full h-1.5 bg-slate-200 dark:bg-slate-800 rounded-lg appearance-none cursor-pointer accent-blue-600"
+                    />
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
+                {ASPECT_RATIOS.map((ratio) => (
+                  <button
+                    key={ratio.value}
+                    onClick={() => {
+                      setAspectRatio(ratio.value);
+                      setCustomWidth(ratio.w);
+                      setCustomHeight(ratio.h);
+                    }}
+                    className={`p-2 rounded-xl text-xs font-bold border text-center transition flex flex-col items-center justify-center gap-1 ${
+                      aspectRatio === ratio.value && !useCustomDimensions
+                        ? 'border-blue-500 bg-blue-50/80 dark:bg-blue-950/50 text-blue-600 dark:text-blue-300 shadow-sm'
+                        : 'border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-950/50 text-slate-600 dark:text-slate-300'
+                    }`}
+                  >
+                    <span className="text-sm">{ratio.icon}</span>
+                    <span className="text-[11px]">{ratio.label}</span>
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
 
           <button
@@ -211,16 +257,16 @@ export const Img2ImgTab: React.FC = () => {
 
         {/* Right Output Display */}
         <div className="lg:col-span-5 space-y-4">
-          <div className="bg-white dark:bg-slate-800 rounded-2xl p-4 border border-slate-200/80 dark:border-slate-700/80 shadow-sm min-h-[420px] flex flex-col justify-between">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-700">
-              <span className="text-xs font-extrabold text-slate-800 dark:text-slate-200">
+          <div className="bg-white dark:bg-slate-900 rounded-2xl p-4 border border-slate-200 dark:border-slate-800 shadow-sm min-h-[380px] flex flex-col justify-between">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800">
+              <span className="text-xs font-black text-slate-800 dark:text-slate-200">
                 🖼️ Img2Img 图生图结果
               </span>
               {lastGeneratedImage && (
                 <a
                   href={lastGeneratedImage.imageUrl}
                   download={`foxai3_img2img_${Date.now()}.png`}
-                  className="px-2.5 py-1 bg-blue-50 dark:bg-slate-700 text-blue-600 dark:text-blue-300 rounded-lg text-xs font-bold hover:bg-blue-100 transition"
+                  className="px-2.5 py-1 bg-blue-50 dark:bg-slate-800 text-blue-600 dark:text-blue-300 rounded-lg text-xs font-bold hover:bg-blue-100 transition"
                 >
                   💾 下载图片
                 </a>

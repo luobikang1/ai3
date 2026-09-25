@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useApp } from '@/context/AppContext';
 import { ModelSelector } from './ModelSelector';
 import { STYLE_PRESETS } from '@/lib/stylePresets';
+import { SAMPLING_METHODS, SCHEDULER_TYPES } from '@/lib/constants';
 
 const QUICK_ASPECT_RATIOS = [
   { label: '1:1 正方形', value: '1:1', icon: '⏹️', w: 1024, h: 1024 },
@@ -16,6 +17,7 @@ export const Txt2ImgTab: React.FC = () => {
     currentPrompt,
     setCurrentPrompt,
     negativePrompt,
+    setNegativePrompt,
     selectedModel,
     selectedStyle,
     setSelectedStyle,
@@ -44,6 +46,18 @@ export const Txt2ImgTab: React.FC = () => {
   const [isUpscaling, setIsUpscaling] = useState(false);
   const [upscaledUrl, setUpscaledUrl] = useState<string | null>(null);
 
+  // Advanced Generator Tuning Panel States ("应有尽有")
+  const [showAdvancedTuning, setShowAdvancedTuning] = useState(false);
+  const [sampler, setSampler] = useState('Euler a');
+  const [scheduler, setScheduler] = useState('Karras');
+  const [clipSkip, setClipSkip] = useState(1);
+  const [seed, setSeed] = useState<number | undefined>(undefined);
+  const [isSeedLocked, setIsSeedLocked] = useState(false);
+  const [enableHiresFix, setEnableHiresFix] = useState(false);
+  const [hiresScale, setHiresScale] = useState(1.5);
+  const [hiresDenoising, setHiresDenoising] = useState(0.5);
+  const [enableFaceRestore, setEnableFaceRestore] = useState(true);
+
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
@@ -59,9 +73,20 @@ export const Txt2ImgTab: React.FC = () => {
 
   const handleGenerate = () => {
     setUpscaledUrl(null);
+    const finalSeed = isSeedLocked && seed ? seed : Math.floor(Math.random() * 899999) + 100000;
+    if (!isSeedLocked) setSeed(finalSeed);
+
     generateImage('text-to-image', {
       customWidth: useCustomDimensions ? customWidth : undefined,
       customHeight: useCustomDimensions ? customHeight : undefined,
+      sampler,
+      scheduler,
+      clipSkip,
+      seed: finalSeed,
+      enableHiresFix,
+      hiresScale,
+      hiresDenoising,
+      enableFaceRestore,
     });
   };
 
@@ -157,7 +182,7 @@ export const Txt2ImgTab: React.FC = () => {
 
   return (
     <div className="space-y-4 pb-20">
-      {/* Compact Model Quick Bar */}
+      {/* Compact Model Bar */}
       <div className="bg-white dark:bg-slate-900 p-3 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm">
         <ModelSelector />
       </div>
@@ -165,6 +190,7 @@ export const Txt2ImgTab: React.FC = () => {
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
         {/* Left Column Controls */}
         <div className="lg:col-span-7 space-y-4">
+          {/* Positive Prompt Input Box */}
           <div className="bg-white dark:bg-slate-900 rounded-2xl p-4 border border-slate-200 dark:border-slate-800 shadow-sm space-y-3">
             <div className="flex items-center justify-between">
               <label className="text-xs font-black text-slate-800 dark:text-slate-200 flex items-center gap-1.5">
@@ -202,12 +228,12 @@ export const Txt2ImgTab: React.FC = () => {
               rows={3}
               value={currentPrompt}
               onChange={(e) => setCurrentPrompt(e.target.value)}
-              placeholder="描述你想生成的画面细节，例如：一只身穿精美赛博朋克装甲的白狐，夜幕下的霓虹城市... (按 Cmd/Ctrl + Enter 快捷生图)"
+              placeholder="描述你想生成的画面细节... (按 Cmd/Ctrl + Enter 快捷生图)"
               className="w-full p-3 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 text-xs text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-blue-500 transition resize-none"
             />
           </div>
 
-          {/* Style Presets Grid */}
+          {/* Style Presets */}
           <div className="bg-white dark:bg-slate-900 rounded-2xl p-4 border border-slate-200 dark:border-slate-800 shadow-sm space-y-2.5">
             <div className="text-xs font-black text-slate-800 dark:text-slate-200 flex items-center justify-between">
               <span>🎨 艺术风格预设</span>
@@ -234,7 +260,7 @@ export const Txt2ImgTab: React.FC = () => {
             </div>
           </div>
 
-          {/* Canvas Aspect Ratio & Custom Dimensions */}
+          {/* Aspect Ratios & Dimensions */}
           <div className="bg-white dark:bg-slate-900 rounded-2xl p-4 border border-slate-200 dark:border-slate-800 shadow-sm space-y-3">
             <div className="flex items-center justify-between">
               <span className="text-xs font-black text-slate-800 dark:text-slate-200">
@@ -308,6 +334,194 @@ export const Txt2ImgTab: React.FC = () => {
             )}
           </div>
 
+          {/* Comprehensive Generator Tuning Accordion ("应有尽有" 调优面板) */}
+          <div className="bg-white dark:bg-slate-900 rounded-2xl p-4 border border-slate-200 dark:border-slate-800 shadow-sm space-y-3">
+            <button
+              onClick={() => setShowAdvancedTuning(!showAdvancedTuning)}
+              className="w-full flex items-center justify-between text-xs font-black text-slate-800 dark:text-slate-200"
+            >
+              <span className="flex items-center gap-2">
+                <span>🎛️ 高级生成器调优面板 (应有尽有)</span>
+                <span className="text-[10px] px-2 py-0.5 rounded bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-300">
+                  专业极客
+                </span>
+              </span>
+              <span>{showAdvancedTuning ? '▲ 折叠' : '▼ 展开高级调优'}</span>
+            </button>
+
+            {showAdvancedTuning && (
+              <div className="pt-3 border-t border-slate-100 dark:border-slate-800 space-y-4 animate-fade-in text-xs">
+                {/* Sampler & Scheduler Selection */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
+                      采样算法 (Sampler)
+                    </label>
+                    <select
+                      value={sampler}
+                      onChange={(e) => setSampler(e.target.value)}
+                      className="w-full p-2 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl font-bold"
+                    >
+                      {SAMPLING_METHODS.map((m) => (
+                        <option key={m} value={m}>
+                          {m}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
+                      调度算法 (Scheduler)
+                    </label>
+                    <select
+                      value={scheduler}
+                      onChange={(e) => setScheduler(e.target.value)}
+                      className="w-full p-2 bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 rounded-xl font-bold"
+                    >
+                      {SCHEDULER_TYPES.map((s) => (
+                        <option key={s} value={s}>
+                          {s}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                {/* Steps, Guidance & CLIP Skip */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div>
+                    <div className="flex justify-between font-bold mb-1">
+                      <span>采样步数:</span>
+                      <span className="text-blue-600">{steps} 步</span>
+                    </div>
+                    <input
+                      type="range"
+                      min={10}
+                      max={50}
+                      value={steps}
+                      onChange={(e) => setSteps(Number(e.target.value))}
+                      className="w-full h-1.5 bg-slate-200 dark:bg-slate-800 rounded-lg appearance-none cursor-pointer accent-blue-600"
+                    />
+                  </div>
+
+                  <div>
+                    <div className="flex justify-between font-bold mb-1">
+                      <span>引导系数 CFG:</span>
+                      <span className="text-blue-600">{guidance}</span>
+                    </div>
+                    <input
+                      type="range"
+                      min={1}
+                      max={20}
+                      step={0.5}
+                      value={guidance}
+                      onChange={(e) => setGuidance(Number(e.target.value))}
+                      className="w-full h-1.5 bg-slate-200 dark:bg-slate-800 rounded-lg appearance-none cursor-pointer accent-blue-600"
+                    />
+                  </div>
+
+                  <div>
+                    <div className="flex justify-between font-bold mb-1">
+                      <span>CLIP Skip:</span>
+                      <span className="text-blue-600">{clipSkip}</span>
+                    </div>
+                    <input
+                      type="range"
+                      min={1}
+                      max={4}
+                      value={clipSkip}
+                      onChange={(e) => setClipSkip(Number(e.target.value))}
+                      className="w-full h-1.5 bg-slate-200 dark:bg-slate-800 rounded-lg appearance-none cursor-pointer accent-blue-600"
+                    />
+                  </div>
+                </div>
+
+                {/* Seed Control & Lock */}
+                <div className="flex flex-col sm:flex-row items-center justify-between gap-3 p-3 bg-slate-50 dark:bg-slate-950 rounded-xl border border-slate-200 dark:border-slate-800">
+                  <div className="flex items-center gap-2 w-full sm:w-auto">
+                    <span className="font-bold whitespace-nowrap">🎲 随机种子 (Seed):</span>
+                    <input
+                      type="number"
+                      placeholder="随机生成"
+                      value={seed || ''}
+                      onChange={(e) => setSeed(e.target.value ? Number(e.target.value) : undefined)}
+                      className="px-2.5 py-1 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-lg font-mono text-xs w-32"
+                    />
+                  </div>
+
+                  <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
+                    <button
+                      onClick={() => setSeed(Math.floor(Math.random() * 899999) + 100000)}
+                      className="px-2.5 py-1 bg-slate-200 dark:bg-slate-800 rounded-lg font-bold hover:bg-slate-300"
+                    >
+                      🎲 随机换 Seed
+                    </button>
+                    <label className="flex items-center gap-1 font-bold cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={isSeedLocked}
+                        onChange={(e) => setIsSeedLocked(e.target.checked)}
+                        className="rounded text-blue-600"
+                      />
+                      <span>锁定 Seed</span>
+                    </label>
+                  </div>
+                </div>
+
+                {/* High-Res Fix & Face Restore Controls */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                  <div className="p-3 bg-slate-50 dark:bg-slate-950 rounded-xl border border-slate-200 dark:border-slate-800 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <label className="font-extrabold flex items-center gap-1.5 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={enableHiresFix}
+                          onChange={(e) => setEnableHiresFix(e.target.checked)}
+                          className="rounded text-blue-600"
+                        />
+                        <span>高清修复 (Hires.fix)</span>
+                      </label>
+                      <span className="text-[10px] text-blue-600 font-bold">{hiresScale}X</span>
+                    </div>
+                    {enableHiresFix && (
+                      <div className="space-y-1.5 pt-1">
+                        <div className="flex justify-between text-[10px]">
+                          <span>重绘幅度:</span>
+                          <span>{hiresDenoising}</span>
+                        </div>
+                        <input
+                          type="range"
+                          min={0.2}
+                          max={0.8}
+                          step={0.05}
+                          value={hiresDenoising}
+                          onChange={(e) => setHiresDenoising(Number(e.target.value))}
+                          className="w-full h-1 bg-slate-200 dark:bg-slate-800 rounded accent-blue-600"
+                        />
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="p-3 bg-slate-50 dark:bg-slate-950 rounded-xl border border-slate-200 dark:border-slate-800 flex items-center justify-between">
+                    <div>
+                      <div className="font-extrabold">👤 面部与细节微调强化</div>
+                      <div className="text-[10px] text-slate-400 mt-0.5">
+                        内置 CodeFormer 美颜与手部矫正
+                      </div>
+                    </div>
+                    <input
+                      type="checkbox"
+                      checked={enableFaceRestore}
+                      onChange={(e) => setEnableFaceRestore(e.target.checked)}
+                      className="rounded text-blue-600 w-4 h-4"
+                    />
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+
           {/* Trigger Generate Button */}
           <button
             onClick={handleGenerate}
@@ -315,7 +529,7 @@ export const Txt2ImgTab: React.FC = () => {
             className="w-full py-4 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-black text-base rounded-2xl shadow-xl shadow-blue-500/20 disabled:opacity-50 disabled:cursor-not-allowed transition transform active:scale-[0.99] flex items-center justify-center gap-2"
           >
             {isGenerating ? (
-              <span>⏳ AI 正在全速推理生成中...</span>
+              <span>⏳ AI 正在全速推演生成中...</span>
             ) : (
               <span>🚀 立即生成画面 (Cmd/Ctrl + Enter)</span>
             )}
