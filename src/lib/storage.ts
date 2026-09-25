@@ -1,7 +1,9 @@
-import { GeneratedImage, UserSettings } from '@/types';
+import { GeneratedImage, UserSettings, PromptDraft } from '@/types';
 import { DEFAULT_SETTINGS } from './constants';
 
 const SETTINGS_KEY = 'fox_ai_settings';
+const WORKSTATION_STATE_KEY = 'fox_ai_workstation_state';
+const DRAFTS_KEY = 'fox_ai_drafts';
 const AUTH_TOKEN_KEY = 'fox_ai_auth_token';
 const AUTH_USER_KEY = 'fox_ai_auth_user';
 const LOGIN_BG_KEY = 'fox_ai_login_bg';
@@ -31,6 +33,91 @@ export function saveStoredSettings(settings: Partial<UserSettings>): UserSetting
     localStorage.setItem(SETTINGS_KEY, JSON.stringify(updated));
   } catch (e) {
     console.error('Failed to save settings', e);
+  }
+  return updated;
+}
+
+// Workstation Prompt & Spec State Persistence (Prevent Refresh Loss)
+export interface StoredWorkstationState {
+  prompt: string;
+  negativePrompt: string;
+  selectedStyle: string;
+  selectedLora: string;
+  styleStrength: number;
+  loraWeight: number;
+  sampler: string;
+  aspectRatio: string;
+  batchCount: number;
+  steps: number;
+  guidance: number;
+}
+
+export function getStoredWorkstationState(): StoredWorkstationState {
+  const fallback: StoredWorkstationState = {
+    prompt: '',
+    negativePrompt: DEFAULT_SETTINGS.defaultNegativePrompt,
+    selectedStyle: 'none',
+    selectedLora: 'none',
+    styleStrength: DEFAULT_SETTINGS.defaultStyleStrength,
+    loraWeight: DEFAULT_SETTINGS.defaultLoraWeight,
+    sampler: DEFAULT_SETTINGS.defaultSampler,
+    aspectRatio: DEFAULT_SETTINGS.defaultAspectRatio,
+    batchCount: DEFAULT_SETTINGS.defaultBatchCount,
+    steps: DEFAULT_SETTINGS.defaultSteps,
+    guidance: DEFAULT_SETTINGS.defaultGuidance,
+  };
+
+  if (typeof window === 'undefined') return fallback;
+  try {
+    const raw = localStorage.getItem(WORKSTATION_STATE_KEY);
+    return raw ? { ...fallback, ...JSON.parse(raw) } : fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+export function saveStoredWorkstationState(state: Partial<StoredWorkstationState>): void {
+  if (typeof window === 'undefined') return;
+  const current = getStoredWorkstationState();
+  const updated = { ...current, ...state };
+  try {
+    localStorage.setItem(WORKSTATION_STATE_KEY, JSON.stringify(updated));
+  } catch (e) {
+    console.error('Failed to save workstation state', e);
+  }
+}
+
+// Drafts Box (草稿箱) Helpers
+export function getStoredDrafts(): PromptDraft[] {
+  if (typeof window === 'undefined') return [];
+  try {
+    const raw = localStorage.getItem(DRAFTS_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
+}
+
+export function saveStoredDraft(draft: PromptDraft): PromptDraft[] {
+  if (typeof window === 'undefined') return [];
+  const current = getStoredDrafts();
+  const updated = [draft, ...current.filter((d) => d.id !== draft.id)];
+  try {
+    localStorage.setItem(DRAFTS_KEY, JSON.stringify(updated));
+  } catch (e) {
+    console.error('Failed to save draft', e);
+  }
+  return updated;
+}
+
+export function deleteStoredDraft(id: string): PromptDraft[] {
+  if (typeof window === 'undefined') return [];
+  const current = getStoredDrafts();
+  const updated = current.filter((d) => d.id !== id);
+  try {
+    localStorage.setItem(DRAFTS_KEY, JSON.stringify(updated));
+  } catch (e) {
+    console.error('Failed to delete draft', e);
   }
   return updated;
 }
@@ -200,12 +287,10 @@ export async function getHistoryItems(): Promise<GeneratedImage[]> {
     if (data.success && Array.isArray(data.data) && data.data.length > 0) {
       const mergedMap = new Map<string, GeneratedImage>();
 
-      // 1. Add remote D1 items first
       data.data.forEach((item: GeneratedImage) => {
         mergedMap.set(item.id, item);
       });
 
-      // 2. Add/Overwrite with local items if local has valid image Data URL
       localItems.forEach((localItem) => {
         const remoteItem = mergedMap.get(localItem.id);
         if (

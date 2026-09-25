@@ -1,8 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { enhancePromptText } from '@/lib/constants';
 import { fetchWithRetry, parseErrorResponse } from '@/lib/fetchWithRetry';
+import { parseAndWeightPrompt, mergeNegativePrompts } from '@/lib/promptPreprocessor';
+import { DEFAULT_SETTINGS } from '@/lib/constants';
 
 export const runtime = 'edge';
+
+// Simple in-memory Edge request cache
+const requestCache = new Map<string, { imageUrls: string[]; timestamp: number }>();
+const CACHE_TTL_MS = 10 * 60 * 1000; // 10 minutes cache
 
 function arrayBufferToBase64(buffer: ArrayBuffer): string {
   if (typeof Buffer !== 'undefined') {
@@ -17,7 +22,6 @@ function arrayBufferToBase64(buffer: ArrayBuffer): string {
   return btoa(binary);
 }
 
-// Resolution Bucket Mapping
 function mapResolutionToBucket(w: number, h: number): { width: number; height: number; aspectRatio: string } {
   const aspect = w / h;
   if (aspect >= 1.5) return { width: 1280, height: 720, aspectRatio: '16:9' };
@@ -28,6 +32,7 @@ function mapResolutionToBucket(w: number, h: number): { width: number; height: n
 }
 
 export async function POST(req: NextRequest) {
+  const startTime = Date.now();
   try {
     const body = await req.json();
     let {
@@ -38,8 +43,9 @@ export async function POST(req: NextRequest) {
       model = 'flux',
       provider: customProvider,
       sampler,
-      steps = 20,
-      guidance = 7.5,
+      steps = 25,
+      guidance = 8.0,
+      styleStrength = 0.65,
       seed,
       batchCount = 1,
       computeEngine = 'pollinations',
@@ -50,7 +56,7 @@ export async function POST(req: NextRequest) {
       hfApiKey: clientHfKey,
       falApiKey: clientFalKey,
       customEndpoint,
-      enhancePrompt = true, // Default enabled for high quality output
+      enhancePrompt = true,
     } = body;
 
     if (!prompt || typeof prompt !== 'string' || !prompt.trim()) {
@@ -60,12 +66,31 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // Apply Prompt Fidelity Preprocessor (1.3 subject weight, 1.2 style weight)
     if (enhancePrompt) {
-      prompt = enhancePromptText(prompt);
+      prompt = parseAndWeightPrompt(prompt, styleStrength);
     }
+
+    // Merge negative prompt with built-in library
+    negativePrompt = mergeNegativePrompts(negativePrompt, DEFAULT_SETTINGS.defaultNegativePrompt);
 
     // Default fixed seed for reproducibility if none provided
     const baseSeed = seed ? Number(seed) : 424242;
+
+    // Cache key construction for edge caching
+    const cacheKey = `${model}_${prompt.trim()}_${width}_${height}_${steps}_${guidance}_${baseSeed}`;
+    const cachedEntry = requestCache.get(cacheKey);
+    if (cachedEntry && Date.now() - cachedEntry.timestamp < CACHE_TTL_MS) {
+      return NextResponse.json({
+        success: true,
+        data: {
+          imageUrl: cachedEntry.imageUrls[0],
+          imageUrls: cachedEntry.imageUrls,
+          generationTimeMs: Date.now() - startTime,
+          cached: true,
+        },
+      });
+    }
 
     const count = Math.min(Math.max(Number(batchCount) || 1, 1), 4);
     const generatedImages: string[] = [];
@@ -75,10 +100,8 @@ export async function POST(req: NextRequest) {
     const hfApiKey = clientHfKey || process.env.HUGGINGFACE_API_KEY;
     const falApiKey = clientFalKey || process.env.FAL_KEY;
 
-    // Standardize resolution
     const resBucket = mapResolutionToBucket(Number(width) || 1024, Number(height) || 1024);
 
-    // Determine target provider
     const effectiveProvider = customProvider || (
       model.startsWith('@cf/') ? 'cloudflare' :
       model.startsWith('fal-ai/') ? 'fal-ai' :
@@ -86,12 +109,10 @@ export async function POST(req: NextRequest) {
       computeEngine
     );
 
-    // Single Image Generation Dispatcher with Structured Fallback Chain
     const generateSingleImage = async (currentSeed: number): Promise<{ url: string; providerUsed: string }> => {
       const attemptedErrors: string[] = [];
 
-      // 1. Primary Attempt by Requested Provider
-      // --- POLLINATIONS PROVIDER ---
+      // 1. POLLINATIONS
       if (effectiveProvider === 'pollinations' || effectiveProvider === 'stable-diffusion') {
         try {
           const encodedPrompt = encodeURIComponent(prompt.trim());
@@ -118,7 +139,7 @@ export async function POST(req: NextRequest) {
         }
       }
 
-      // --- CLOUDFLARE WORKERS AI PROVIDER ---
+      // 2. CLOUDFLARE WORKERS AI
       if (effectiveProvider === 'cloudflare' || effectiveProvider === 'cloudflare-ai' || cfApiToken) {
         if (cfApiToken && cfAccountId) {
           try {
@@ -133,15 +154,15 @@ export async function POST(req: NextRequest) {
               },
               body: JSON.stringify({
                 prompt: prompt.trim(),
-                negative_prompt: negativePrompt ? negativePrompt.trim() : undefined,
+                negative_prompt: negativePrompt,
                 width: resBucket.width,
                 height: resBucket.height,
-                num_steps: Math.min(Math.max(Number(steps) || 20, 1), 50),
-                guidance: Number(guidance) || 7.5,
+                num_steps: Math.min(Math.max(Number(steps) || 25, 1), 50),
+                guidance: Number(guidance) || 8.0,
                 seed: currentSeed,
               }),
               timeoutMs: 30000,
-              maxRetries: 2,
+              maxRetries: 3,
             });
 
             if (cfResponse.ok) {
@@ -165,12 +186,10 @@ export async function POST(req: NextRequest) {
           } catch (e: any) {
             attemptedErrors.push(`Cloudflare Workers AI 错误: ${e.message}`);
           }
-        } else if (effectiveProvider === 'cloudflare' || effectiveProvider === 'cloudflare-ai') {
-          attemptedErrors.push('Cloudflare AI 未配置 API Token 和 Account ID');
         }
       }
 
-      // --- FAL.AI PROVIDER ---
+      // 3. FAL.AI
       if (effectiveProvider === 'fal-ai' || falApiKey) {
         if (falApiKey) {
           try {
@@ -190,7 +209,7 @@ export async function POST(req: NextRequest) {
                 num_images: 1,
               }),
               timeoutMs: 30000,
-              maxRetries: 2,
+              maxRetries: 3,
             });
 
             if (falResponse.ok) {
@@ -207,7 +226,7 @@ export async function POST(req: NextRequest) {
         }
       }
 
-      // --- HUGGINGFACE PROVIDER ---
+      // 4. HUGGINGFACE
       if (effectiveProvider === 'huggingface' || hfApiKey) {
         try {
           const hfModelPath = model.includes('/') ? model : 'black-forest-labs/FLUX.1-schnell';
@@ -224,16 +243,16 @@ export async function POST(req: NextRequest) {
             body: JSON.stringify({
               inputs: prompt.trim(),
               parameters: {
-                negative_prompt: negativePrompt ? negativePrompt.trim() : undefined,
+                negative_prompt: negativePrompt,
                 width: resBucket.width,
                 height: resBucket.height,
-                guidance_scale: Number(guidance) || 7.5,
-                num_inference_steps: Number(steps) || 20,
+                guidance_scale: Number(guidance) || 8.0,
+                num_inference_steps: Number(steps) || 25,
                 seed: currentSeed,
               },
             }),
             timeoutMs: 30000,
-            maxRetries: 2,
+            maxRetries: 3,
           });
 
           if (hfResponse.ok) {
@@ -251,7 +270,7 @@ export async function POST(req: NextRequest) {
         }
       }
 
-      // --- FALLBACK TO POLLINATIONS OPEN GPU POOL IF ALL PREVIOUS FAILED ---
+      // 5. POLLINATIONS FALLBACK DOWNSCALING
       try {
         const encodedPrompt = encodeURIComponent(prompt.trim());
         const fallbackUrl = `https://image.pollinations.ai/prompt/${encodedPrompt}?width=${resBucket.width}&height=${resBucket.height}&seed=${currentSeed}&nologo=true&safe=false&model=flux`;
@@ -259,7 +278,7 @@ export async function POST(req: NextRequest) {
         const polFallbackRes = await fetchWithRetry(fallbackUrl, {
           headers: { 'User-Agent': 'Mozilla/5.0 (compatible; FoxAI/3.0)' },
           timeoutMs: 30000,
-          maxRetries: 2,
+          maxRetries: 3,
         });
 
         if (polFallbackRes.ok) {
@@ -276,7 +295,6 @@ export async function POST(req: NextRequest) {
       throw new Error(attemptedErrors.join(' | ') || '所有算力降级节点均未返回成功响应');
     };
 
-    // Execute generation loop
     for (let i = 0; i < count; i++) {
       try {
         const currentSeed = baseSeed + i * 13;
@@ -301,11 +319,17 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // Cache successful output
+    requestCache.set(cacheKey, { imageUrls: generatedImages, timestamp: Date.now() });
+
+    const totalTime = Date.now() - startTime;
+
     return NextResponse.json({
       success: true,
       data: {
         imageUrl: generatedImages[0],
         imageUrls: generatedImages,
+        generationTimeMs: totalTime,
       },
     });
   } catch (error: any) {

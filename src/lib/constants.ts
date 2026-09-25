@@ -2,10 +2,10 @@ import { AIModel, ComputeEngine } from '@/types';
 
 export const COMPUTE_ENGINES: ComputeEngine[] = [
   {
-    id: 'stable-diffusion',
-    name: 'Stable Diffusion (出厂标准引擎)',
-    type: 'stable-diffusion',
-    description: '标准 SD WebUI / AUTOMATIC1111 / ComfyUI / SDXL 本地或云端接口',
+    id: 'pollinations',
+    name: 'Pollinations 免费开放算力池 (无需 Key)',
+    type: 'pollinations',
+    description: '无需 API Key 免费调用的全球 GPU 分布式图形生成算力',
     isDefault: true,
   },
   {
@@ -27,10 +27,10 @@ export const COMPUTE_ENGINES: ComputeEngine[] = [
     description: '秒级极速 Flux1.1 Pro、FLUX Schnell 与 SD3 超清推理节点',
   },
   {
-    id: 'pollinations',
-    name: 'Pollinations 免费开放算力池',
-    type: 'pollinations',
-    description: '无需 API Key 免费调用的全球 GPU 分布式图形生成算力',
+    id: 'stable-diffusion',
+    name: 'Stable Diffusion WebUI / ComfyUI 节点',
+    type: 'stable-diffusion',
+    description: '标准 SD WebUI / AUTOMATIC1111 / ComfyUI / SDXL 本地或云端接口',
   },
   {
     id: 'custom-api',
@@ -49,18 +49,25 @@ export const SAMPLING_METHODS = [
   { id: 'UniPC', name: 'UniPC (极速收敛)' },
 ];
 
+export const DEFAULT_BUILTIN_NEGATIVE_PROMPT =
+  'blurry, low quality, distorted, extra limbs, extra fingers, bad hands, bad face, deformed, watermark, text, signature, lowres, ugly, out of frame';
+
+// Factory Verified Best Specs Matrix
 export const DEFAULT_SETTINGS = {
-  computeEngine: 'stable-diffusion',
+  computeEngine: 'pollinations',
   defaultModel: 'flux',
   defaultSampler: 'Euler a',
   defaultAspectRatio: '1:1',
   defaultBatchCount: 1,
-  defaultSteps: 25,
-  defaultGuidance: 7.5,
+  defaultSteps: 25, // Factory verified best steps
+  defaultGuidance: 8.0, // Factory verified best CFG
+  defaultStyleStrength: 0.65, // Factory verified style strength
+  defaultLoraWeight: 0.5, // Factory verified LoRA strength
+  defaultNegativePrompt: DEFAULT_BUILTIN_NEGATIVE_PROMPT,
   darkMode: false,
   historyLimit: 50,
   enableD1Sync: true,
-  autoEnhancePrompt: false,
+  autoEnhancePrompt: true,
 };
 
 export const ASPECT_RATIOS = [
@@ -72,8 +79,6 @@ export const ASPECT_RATIOS = [
 ];
 
 export const PRESET_MODELS: AIModel[] = [
-  // Exactly 30 Preset AI Drawing Models
-  // 1-5: FLUX Series
   {
     id: 'flux',
     name: 'FLUX.1 Schnell (推荐首选)',
@@ -121,8 +126,6 @@ export const PRESET_MODELS: AIModel[] = [
     falModelPath: 'fal-ai/flux/schnell',
     category: 'flux',
   },
-
-  // 6-10: SDXL Series
   {
     id: 'sdxl-base-1.0',
     name: 'Stable Diffusion XL 1.0',
@@ -168,8 +171,6 @@ export const PRESET_MODELS: AIModel[] = [
     provider: 'pollinations',
     category: 'sdxl',
   },
-
-  // 11-15: Anime & 二次元 Series
   {
     id: '@cf/lykon/dreamshaper-8-lcm',
     name: 'Cloudflare DreamShaper 8 LCM',
@@ -215,8 +216,6 @@ export const PRESET_MODELS: AIModel[] = [
     provider: 'pollinations',
     category: 'anime',
   },
-
-  // 16-20: Realistic & Photography Series
   {
     id: 'SG161222/RealVisXL_V4.0',
     name: 'RealVisXL V4.0 (Studio Photography)',
@@ -260,8 +259,6 @@ export const PRESET_MODELS: AIModel[] = [
     provider: 'pollinations',
     category: 'realistic',
   },
-
-  // 21-25: SD 1.5 Classical Series
   {
     id: 'runwayml/stable-diffusion-v1-5',
     name: 'HuggingFace SD v1.5',
@@ -304,8 +301,6 @@ export const PRESET_MODELS: AIModel[] = [
     provider: 'pollinations',
     category: 'sd15',
   },
-
-  // 26-30: 3D, Toy & Vector Render Series
   {
     id: 'flux-3d',
     name: 'FLUX 3D Blindbox Render',
@@ -349,13 +344,13 @@ export const PRESET_MODELS: AIModel[] = [
   },
 ];
 
-// Mainstream prompt enhancement master templates
+// Weighted prompt structure generator (LLM-style 5 dimensions enrichment)
 export function enhancePromptText(rawPrompt: string): string {
   const clean = rawPrompt.trim();
   if (!clean) return clean;
 
   const qualityBoosters =
-    ', masterpiece, best quality, highly detailed, ultra sharp focus, 8k resolution, professional volumetric lighting, unreal engine 5 render, cinematic composition, photorealistic, hyperdetailed';
+    ', (masterpiece:1.3), (best quality:1.3), highly detailed subject, ultra sharp focus, 8k resolution, cinematic lighting, photorealistic, hyperdetailed';
 
   if (clean.includes('masterpiece') || clean.includes('8k') || clean.includes('photorealistic')) {
     return clean;

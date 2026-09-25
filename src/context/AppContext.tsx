@@ -1,7 +1,7 @@
 'use client';
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { UserSettings, AuthState, AIModel, GeneratedImage } from '@/types';
+import { UserSettings, AuthState, AIModel, GeneratedImage, PromptDraft } from '@/types';
 import {
   getStoredSettings,
   saveStoredSettings,
@@ -14,6 +14,9 @@ import {
   saveHistoryItem,
   deleteHistoryItem as deleteHistStorage,
   clearAllHistory as clearHistStorage,
+  getStoredDrafts,
+  saveStoredDraft,
+  deleteStoredDraft,
 } from '@/lib/storage';
 import { PRESET_MODELS } from '@/lib/constants';
 
@@ -33,6 +36,9 @@ interface AppContextType {
   addHistoryItem: (item: GeneratedImage) => Promise<void>;
   deleteHistoryItem: (id: string) => Promise<void>;
   clearHistory: () => Promise<void>;
+  drafts: PromptDraft[];
+  saveDraft: (draft: PromptDraft) => void;
+  deleteDraft: (id: string) => void;
   toast: { message: string; type: 'success' | 'error' | 'info' } | null;
   showToast: (message: string, type?: 'success' | 'error' | 'info') => void;
 }
@@ -48,10 +54,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   });
   const [models, setModels] = useState<AIModel[]>(PRESET_MODELS);
   const [selectedModel, setSelectedModelRaw] = useState<AIModel>(PRESET_MODELS[0]);
+  const [drafts, setDrafts] = useState<PromptDraft[]>([]);
 
   const setSelectedModel = (model: AIModel) => {
     setSelectedModelRaw(model);
-    // Auto-align compute engine with selected model's provider for smooth UX
     if (model.provider === 'cloudflare') {
       updateSettings({ computeEngine: 'cloudflare-ai' });
     } else if (model.provider === 'huggingface') {
@@ -70,7 +76,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [history, setHistory] = useState<GeneratedImage[]>([]);
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' | 'info' } | null>(null);
 
-  // Sync Dark Mode class whenever settings change
   useEffect(() => {
     if (settings.darkMode) {
       document.documentElement.classList.add('dark');
@@ -79,20 +84,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   }, [settings.darkMode]);
 
-  // Initialize on mount
   useEffect(() => {
-    // 1. Settings
     const initialSettings = getStoredSettings();
     setSettings(initialSettings);
 
-    // 2. Auth
     const token = getStoredAuthToken();
     const username = getStoredUsername();
     if (token && username) {
       setAuth({ isLoggedIn: true, username, token });
     }
 
-    // 3. Favorites
     const favs = getFavoriteModels();
     setModels((prev) =>
       prev.map((m) => ({
@@ -101,13 +102,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }))
     );
 
-    // 4. Find saved default model
     const defaultM = PRESET_MODELS.find((m) => m.id === initialSettings.defaultModel);
     if (defaultM) {
       setSelectedModel(defaultM);
     }
 
-    // 5. Load History from IndexedDB
+    setDrafts(getStoredDrafts());
+
     getHistoryItems().then((items) => {
       setHistory(items);
     });
@@ -196,6 +197,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     showToast('已清空所有历史记录', 'success');
   };
 
+  const saveDraft = (draft: PromptDraft) => {
+    const updated = saveStoredDraft(draft);
+    setDrafts(updated);
+    showToast('已保存提示词草稿', 'success');
+  };
+
+  const deleteDraft = (id: string) => {
+    const updated = deleteStoredDraft(id);
+    setDrafts(updated);
+    showToast('已删除草稿', 'info');
+  };
+
   const showToast = (message: string, type: 'success' | 'error' | 'info' = 'info') => {
     setToast({ message, type });
     setTimeout(() => {
@@ -221,6 +234,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         addHistoryItem,
         deleteHistoryItem,
         clearHistory,
+        drafts,
+        saveDraft,
+        deleteDraft,
         toast,
         showToast,
       }}

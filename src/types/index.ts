@@ -24,6 +24,21 @@ export interface AIModel {
   recommendedReason?: string;
 }
 
+export interface PromptDraft {
+  id: string;
+  title: string;
+  prompt: string;
+  negativePrompt: string;
+  modelId: string;
+  stylePreset: string;
+  loraId: string;
+  styleStrength: number;
+  loraWeight: number;
+  steps: number;
+  guidance: number;
+  createdAt: number;
+}
+
 export interface GenerationParams {
   prompt: string;
   negativePrompt?: string;
@@ -35,6 +50,7 @@ export interface GenerationParams {
   steps?: number;
   guidance?: number;
   strength?: number; // for img2img
+  styleStrength?: number;
   seed?: number;
   batchCount?: number; // 1, 2, 4
   inputImage?: string; // base64 or URL for img2img
@@ -52,6 +68,7 @@ export interface GeneratedImage {
   params: GenerationParams;
   createdAt: number;
   modelName: string;
+  generationTimeMs?: number;
 }
 
 export interface UserAccount {
@@ -77,6 +94,9 @@ export interface UserSettings {
   defaultBatchCount: number;
   defaultSteps: number;
   defaultGuidance: number;
+  defaultStyleStrength: number;
+  defaultLoraWeight: number;
+  defaultNegativePrompt: string;
   darkMode: boolean;
   historyLimit: number;
   enableD1Sync?: boolean;
