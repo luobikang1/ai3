@@ -88,7 +88,7 @@ export async function POST(req: NextRequest) {
     const generateSingleImage = async (currentSeed: number): Promise<{ url: string; providerUsed: string }> => {
       const attemptedErrors: string[] = [];
 
-      // 1. CLOUDFLARE WORKERS AI (Prioritized if model is @cf/ or computeEngine is cloudflare-ai or credentials present)
+      // 1. CLOUDFLARE WORKERS AI (If model starts with @cf/ or computeEngine === 'cloudflare-ai' or CF Key present)
       if (model.startsWith('@cf/') || computeEngine === 'cloudflare-ai' || (cfApiToken && cfAccountId)) {
         if (cfApiToken && cfAccountId) {
           try {
@@ -138,7 +138,7 @@ export async function POST(req: NextRequest) {
             attemptedErrors.push(`Cloudflare Workers AI 错误: ${e.message}`);
           }
         } else if (model.startsWith('@cf/')) {
-          attemptedErrors.push('未配置 Cloudflare Account ID 和 API Token，请在「设置」中填入 Key');
+          attemptedErrors.push('未配置 Cloudflare Account ID 和 API Token，请在「设置」中填入');
         }
       }
 
@@ -220,11 +220,12 @@ export async function POST(req: NextRequest) {
         }
       }
 
-      // 4. POLLINATIONS FREE POOL (Primary or Fallback)
+      // 4. POLLINATIONS HIGH-QUALITY FREE GPU POOL
       try {
         const encodedPrompt = encodeURIComponent(prompt.trim());
         const polModel = model.startsWith('@cf/') ? 'flux' : model;
-        const pollinationsUrl = `https://image.pollinations.ai/prompt/${encodedPrompt}?width=${resBucket.width}&height=${resBucket.height}&seed=${currentSeed}&nologo=true&safe=${!enableNsfw}&model=${encodeURIComponent(
+        // Enhanced quality parameters: enhance=true, nologo=true, high resolution bucket
+        const pollinationsUrl = `https://image.pollinations.ai/prompt/${encodedPrompt}?width=${resBucket.width}&height=${resBucket.height}&seed=${currentSeed}&nologo=true&enhance=true&safe=${!enableNsfw}&model=${encodeURIComponent(
           polModel
         )}`;
 
@@ -237,7 +238,7 @@ export async function POST(req: NextRequest) {
         if (polResponse.ok) {
           const arrayBuffer = await polResponse.arrayBuffer();
           const base64 = arrayBufferToBase64(arrayBuffer);
-          return { url: `data:image/jpeg;base64,${base64}`, providerUsed: 'Pollinations 开放算力池' };
+          return { url: `data:image/jpeg;base64,${base64}`, providerUsed: 'Pollinations 全球免费 FLUX 高清算力池' };
         } else {
           attemptedErrors.push(await parseErrorResponse(polResponse, 'Pollinations 节点错误'));
         }

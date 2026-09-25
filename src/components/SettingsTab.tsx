@@ -13,6 +13,10 @@ export const SettingsTab: React.FC = () => {
   const [stabilityApiKey, setStabilityApiKey] = useState(settings.stabilityApiKey || '');
   const [enableNsfw, setEnableNsfw] = useState(settings.enableNsfw ?? true);
 
+  // Cloudflare Connection Tester State
+  const [isTestingCf, setIsTestingCf] = useState(false);
+  const [cfTestResult, setCfTestResult] = useState<{ success: boolean; message: string } | null>(null);
+
   // Cloudflare D1 Connection State
   const [d1Status, setD1Status] = useState<{ connected: boolean; message: string }>({
     connected: false,
@@ -34,6 +38,39 @@ export const SettingsTab: React.FC = () => {
       });
     } catch {
       setD1Status({ connected: false, message: '浏览器本地独占存储 (无数据库依赖)' });
+    }
+  };
+
+  const handleTestCloudflareAI = async () => {
+    if (!cfAccountId.trim() || !cfApiToken.trim()) {
+      showToast('请填写 Cloudflare Account ID 和 API Token', 'error');
+      return;
+    }
+    setIsTestingCf(true);
+    setCfTestResult(null);
+    try {
+      const res = await fetch(`https://api.cloudflare.com/client/v4/accounts/${cfAccountId.trim()}/ai/run/@cf/bytedance/stable-diffusion-xl-lightning`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${cfApiToken.trim()}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ prompt: 'a cute white fox', num_steps: 1 }),
+      });
+
+      if (res.ok) {
+        setCfTestResult({ success: true, message: '✓ Cloudflare Workers AI 鉴权通过！边缘算力随时可用' });
+        showToast('Cloudflare AI 连接测试成功！', 'success');
+      } else {
+        const errJson = await res.json().catch(() => ({}));
+        setCfTestResult({ success: false, message: `✕ 连接失败: ${errJson.errors?.[0]?.message || res.statusText}` });
+        showToast('Cloudflare AI 鉴权未通过，请核对 Key', 'error');
+      }
+    } catch (e: any) {
+      setCfTestResult({ success: false, message: `✕ 网络错误: ${e.message}` });
+      showToast('无法连接 Cloudflare API 端点', 'error');
+    } finally {
+      setIsTestingCf(false);
     }
   };
 
@@ -77,13 +114,78 @@ export const SettingsTab: React.FC = () => {
 
   return (
     <div className="max-w-3xl mx-auto space-y-5 pb-20">
+      {/* Cloudflare Account ID & API Token Integration Box */}
+      <div className="bg-gradient-to-br from-blue-600 to-indigo-700 text-white rounded-2xl p-5 shadow-lg space-y-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <span className="text-xl">⚡</span>
+            <div>
+              <h3 className="text-sm font-black tracking-tight">Cloudflare Workers AI 专用接入窗口</h3>
+              <p className="text-[11px] text-blue-100 mt-0.5">
+                配置 Cloudflare 账号凭证，发挥全球边缘网络无限生图算力
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={handleSave}
+            className="px-4 py-1.5 bg-white text-blue-600 font-bold text-xs rounded-xl hover:bg-blue-50 shadow-md transition"
+          >
+            保存凭证
+          </button>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-2 text-slate-800">
+          <div>
+            <label className="block text-[11px] font-bold text-blue-100 mb-1">
+              Cloudflare Account ID (账户 ID)
+            </label>
+            <input
+              type="text"
+              placeholder="在 Cloudflare 仪表盘右侧获取，例如: a1b2c3d4..."
+              value={cfAccountId}
+              onChange={(e) => setCfAccountId(e.target.value)}
+              className="w-full px-3 py-2 rounded-xl text-xs bg-white border border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 font-mono"
+            />
+          </div>
+
+          <div>
+            <label className="block text-[11px] font-bold text-blue-100 mb-1">
+              Cloudflare Workers AI API Token
+            </label>
+            <input
+              type="password"
+              placeholder="例如: Bearer token..."
+              value={cfApiToken}
+              onChange={(e) => setCfApiToken(e.target.value)}
+              className="w-full px-3 py-2 rounded-xl text-xs bg-white border border-blue-300 focus:outline-none focus:ring-2 focus:ring-blue-400 font-mono"
+            />
+          </div>
+        </div>
+
+        <div className="flex items-center justify-between pt-1">
+          <button
+            onClick={handleTestCloudflareAI}
+            disabled={isTestingCf}
+            className="px-3.5 py-1.5 bg-blue-900/60 hover:bg-blue-900/80 text-white rounded-xl text-xs font-bold transition flex items-center gap-1.5 border border-blue-400/30"
+          >
+            {isTestingCf ? '⏳ 连接测试中...' : '🔌 测试 Cloudflare AI 连通性'}
+          </button>
+
+          {cfTestResult && (
+            <span className={`text-xs font-bold ${cfTestResult.success ? 'text-emerald-300' : 'text-rose-200'}`}>
+              {cfTestResult.message}
+            </span>
+          )}
+        </div>
+      </div>
+
       {/* Cloudflare D1 Cloud Sync Banner */}
       <div className="bg-white dark:bg-slate-900 rounded-2xl p-5 border border-slate-200 dark:border-slate-800 shadow-sm space-y-3">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <span className="text-base">☁️</span>
             <span className="text-xs font-black text-slate-800 dark:text-slate-100">
-              Cloudflare D1 数据库状态与一键同步
+              Cloudflare D1 数据库状态与同步
             </span>
           </div>
 
@@ -117,11 +219,11 @@ export const SettingsTab: React.FC = () => {
         </div>
       </div>
 
-      {/* Compute Engine & API Key Setup */}
+      {/* Compute Engine Engine Selector */}
       <div className="bg-white dark:bg-slate-900 rounded-2xl p-5 border border-slate-200 dark:border-slate-800 shadow-sm space-y-4">
         <div className="flex items-center justify-between">
           <h3 className="text-xs font-black text-slate-800 dark:text-white flex items-center gap-2">
-            🚀 融合算力引擎选择
+            🚀 融合算力引擎切换
           </h3>
           <button
             onClick={handleSave}
@@ -161,10 +263,10 @@ export const SettingsTab: React.FC = () => {
           ))}
         </div>
 
-        {/* API Keys Input */}
+        {/* Other Provider API Keys */}
         <div className="pt-3 border-t border-slate-100 dark:border-slate-800 space-y-3">
           <span className="text-[11px] font-bold text-slate-400 block uppercase">
-            自定义算力 API Key 配置 (可选)
+            其他开放平台 Key 配置
           </span>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">

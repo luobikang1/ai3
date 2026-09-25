@@ -1,18 +1,18 @@
-// High-Fidelity Clean Prompt Preprocessor
-const DICT_TRANSLATE: Record<string, string> = {
-  白狐: 'a majestic white fox with glowing blue ethereal fur',
-  白狐AI: 'white fox, glowing mystical eyes',
-  赛博朋克: 'cyberpunk style, neon glowing lights, futuristic city',
-  机甲: 'detailed mecha armor, metallic reflections',
-  二次元: 'anime key visual, Makoto Shinkai style, vibrant colors',
-  动漫: 'masterpiece anime illustration',
-  水墨: 'traditional Chinese ink wash painting, elegant brushstrokes',
-  国风: 'traditional Chinese style, oriental aesthetic',
-  写实: 'photorealistic portrait, 8k resolution, raw photo',
-  胶片: '35mm vintage film photograph, Kodak Portra 400',
-  光影: 'cinematic lighting, volumetric shadows',
-  肖像: 'detailed masterpiece portrait, sharp focus on eyes',
-  古风: 'ancient oriental hanfu, elegant flowing silk',
+// Clean, Ultra-High Fidelity Prompt Preprocessor for Free & Cloud Engines
+const QUALITY_TRANSLATION_DICT: Record<string, string> = {
+  白狐: 'a majestic white fox with glowing blue eyes and ethereal fur',
+  白狐AI: 'white fox, glowing mystical blue eyes',
+  赛博朋克: 'cyberpunk style, vibrant neon glowing lights, futuristic cityscape background',
+  机甲: 'highly detailed mecha armor, polished metallic surfaces, intricate mechanical parts',
+  二次元: 'masterpiece anime key visual, Makoto Shinkai aesthetic, crisp clean line art',
+  动漫: 'beautiful anime illustration, vivid rich colors, cinematic composition',
+  水墨: 'traditional Chinese ink wash painting, xuan paper texture, elegant poetic brushstrokes',
+  国风: 'traditional Chinese style, oriental aesthetic, exquisite hanfu',
+  写实: 'photorealistic portrait, raw photo, DSLR shot, 85mm lens, f/1.8 aperture, natural skin texture',
+  胶片: '35mm vintage film photograph, Kodak Portra 400, fine grain, nostalgic lighting',
+  光影: 'cinematic studio lighting, volumetric shadows, ray tracing reflections',
+  肖像: 'masterpiece detailed portrait, crystal clear focus on eyes',
+  古风: 'ancient oriental hanfu, elegant flowing silk fabric',
   高清: '8k resolution, hyperdetailed, sharp focus',
 };
 
@@ -20,27 +20,26 @@ export function parseAndWeightPrompt(prompt: string, styleStrength = 0.65): stri
   let clean = prompt.trim();
   if (!clean) return '';
 
-  // 1. Translate Chinese keywords
-  Object.keys(DICT_TRANSLATE).forEach((key) => {
+  // 1. Direct translation of common Chinese prompt terms to descriptive English
+  Object.keys(QUALITY_TRANSLATION_DICT).forEach((key) => {
     if (clean.includes(key)) {
-      clean = clean.replaceAll(key, DICT_TRANSLATE[key]);
+      clean = clean.replaceAll(key, QUALITY_TRANSLATION_DICT[key]);
     }
   });
 
-  // Remove potential double parentheses or broken weighting syntax that FLUX/Pollinations dislikes
-  clean = clean.replace(/[\(\)]/g, '').trim();
+  // Remove potential double parentheses or syntax corruptions that degrade FLUX/SDXL free engine rendering
+  clean = clean.replace(/[\(\)\[\]]/g, '').trim();
 
-  // Quality boosters
-  const qualitySuffix = 'masterpiece, best quality, highly detailed, 8k resolution, cinematic lighting, sharp focus';
+  // 2. High-Fidelity Quality Boosters
+  const qualityTriggers = 'masterpiece, best quality, highly detailed, 8k resolution, cinematic lighting, sharp focus, Octane render';
 
-  return `${clean}, ${qualitySuffix}`;
+  return `${clean}, ${qualityTriggers}`;
 }
 
 export function mergeNegativePrompts(userNegative?: string, defaultNegative?: string, nsfwEnabled = false): string {
   const custom = (userNegative || '').trim();
-  const builtIn = (defaultNegative || 'blurry, low quality, distorted, bad hands, bad face, deformed').trim();
+  const builtIn = (defaultNegative || 'blurry, low quality, distorted, bad hands, bad face, deformed, watermark, low resolution').trim();
 
-  // If NSFW is disabled, add safety restrictions; if enabled, omit safety filter completely to allow full sensitive generation
   const safetyFilter = nsfwEnabled ? '' : ', explicit violence, gore, explicit nudity';
 
   if (!custom) return `${builtIn}${safetyFilter}`;

@@ -3,8 +3,10 @@ import { useApp } from '@/context/AppContext';
 
 export const LoginGateScreen: React.FC = () => {
   const { login, showToast } = useApp();
+  const [isRegisterMode, setIsRegisterMode] = useState(false);
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -14,22 +16,33 @@ export const LoginGateScreen: React.FC = () => {
       return;
     }
 
+    if (isRegisterMode && password !== confirmPassword) {
+      showToast('两次输入的密码不一致', 'error');
+      return;
+    }
+
     setIsLoading(true);
     try {
-      const res = await fetch('/api/auth/login', {
+      const endpoint = '/api/auth/login';
+      const res = await fetch(endpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username: username.trim(), password: password.trim() }),
+        body: JSON.stringify({
+          username: username.trim(),
+          password: password.trim(),
+          isRegister: isRegisterMode,
+        }),
       });
 
       const json = await res.json();
       if (json.success && json.data) {
         login(json.data.token, json.data.username);
+        showToast(isRegisterMode ? '注册成功并已自动登录！' : '登录成功！', 'success');
       } else {
-        showToast(json.error || '登录失败，请检查账号密码', 'error');
+        showToast(json.error || '验证失败，请检查账号密码', 'error');
       }
     } catch {
-      showToast('登录服务异常，请重试', 'error');
+      showToast('验证服务异常，请重试', 'error');
     } finally {
       setIsLoading(false);
     }
@@ -50,47 +63,92 @@ export const LoginGateScreen: React.FC = () => {
           </p>
         </div>
 
+        {/* Tab Switch: Login vs Register */}
+        <div className="flex bg-slate-800/80 p-1 rounded-xl border border-slate-700 text-xs font-bold">
+          <button
+            type="button"
+            onClick={() => setIsRegisterMode(false)}
+            className={`flex-1 py-2 rounded-lg transition ${
+              !isRegisterMode ? 'bg-blue-600 text-white shadow-md' : 'text-slate-400 hover:text-white'
+            }`}
+          >
+            账号登录
+          </button>
+          <button
+            type="button"
+            onClick={() => setIsRegisterMode(true)}
+            className={`flex-1 py-2 rounded-lg transition ${
+              isRegisterMode ? 'bg-blue-600 text-white shadow-md' : 'text-slate-400 hover:text-white'
+            }`}
+          >
+            新用户注册
+          </button>
+        </div>
+
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label className="block text-xs font-bold text-slate-300 mb-1">
-              账号 (Admin 或 任意访客用户名)
+              用户名 ({isRegisterMode ? '自定义新账号' : 'Admin 或 任意注册用户名'})
             </label>
             <input
               type="text"
               required
               value={username}
               onChange={(e) => setUsername(e.target.value)}
-              placeholder="例如: admin"
+              placeholder={isRegisterMode ? '输入您的新用户名' : '例如: admin'}
               className="w-full px-4 py-3 rounded-xl bg-slate-800/80 border border-slate-700 text-xs text-white focus:ring-2 focus:ring-blue-500 focus:outline-none"
             />
           </div>
 
           <div>
             <label className="block text-xs font-bold text-slate-300 mb-1">
-              访问密码 (管理员初始密码: admin888)
+              密码 (管理员初始密码: admin888)
             </label>
             <input
               type="password"
               required
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              placeholder="管理员默认密码 admin888"
+              placeholder={isRegisterMode ? '设置不低于 4 位的密码' : '管理员默认密码 admin888'}
               className="w-full px-4 py-3 rounded-xl bg-slate-800/80 border border-slate-700 text-xs text-white focus:ring-2 focus:ring-blue-500 focus:outline-none"
             />
           </div>
+
+          {isRegisterMode && (
+            <div>
+              <label className="block text-xs font-bold text-slate-300 mb-1">
+                确认密码
+              </label>
+              <input
+                type="password"
+                required
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                placeholder="再次输入密码"
+                className="w-full px-4 py-3 rounded-xl bg-slate-800/80 border border-slate-700 text-xs text-white focus:ring-2 focus:ring-blue-500 focus:outline-none"
+              />
+            </div>
+          )}
 
           <button
             type="submit"
             disabled={isLoading}
             className="w-full py-3.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-black text-sm rounded-xl shadow-lg transition"
           >
-            {isLoading ? '🔐 验证加密令牌中...' : '🚀 登录进入 白狐AI三'}
+            {isLoading
+              ? '🔐 验证加密令牌中...'
+              : isRegisterMode
+              ? '✨ 立即注册新账号并进入'
+              : '🚀 登录进入 白狐AI三'}
           </button>
         </form>
 
         <div className="p-3 bg-blue-950/40 border border-blue-900/50 rounded-xl text-[11px] text-blue-200/80 space-y-1">
           <p className="font-bold text-blue-300">💡 提示：</p>
-          <p>管理员账号为 <code className="text-blue-200">admin</code>，初始密码为 <code className="text-blue-200">admin888</code>。可在部署环境变量中自定义 <code className="text-blue-200">ADMIN_PASSWORD</code>。</p>
+          <p>
+            管理员账号为 <code className="text-blue-200">admin</code>，初始密码为{' '}
+            <code className="text-blue-200">admin888</code>。注册新账号不受传统数据库限制，验证通过后发放加密 JWT Token。
+          </p>
         </div>
       </div>
     </div>
