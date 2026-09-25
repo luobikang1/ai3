@@ -1,8 +1,5 @@
-'use client';
-
 import React, { useState } from 'react';
 import { useApp } from '@/context/AppContext';
-import { Lock, User, KeyRound, Sparkles, ShieldCheck } from 'lucide-react';
 
 export const LoginGateScreen: React.FC = () => {
   const { login, showToast } = useApp();
@@ -10,10 +7,10 @@ export const LoginGateScreen: React.FC = () => {
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
-  const handleLogin = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!username.trim() || !password.trim()) {
-      showToast('请输入用户名与密码', 'error');
+      showToast('请输入用户名和密码', 'error');
       return;
     }
 
@@ -25,93 +22,75 @@ export const LoginGateScreen: React.FC = () => {
         body: JSON.stringify({ username: username.trim(), password: password.trim() }),
       });
 
-      const data = await res.json();
-      if (data.success && data.data?.token) {
-        login(data.data.token, data.data.username);
+      const json = await res.json();
+      if (json.success && json.data) {
+        login(json.data.token, json.data.username);
       } else {
-        showToast(data.error || '登录鉴权失败，请核对凭证', 'error');
+        showToast(json.error || '登录失败，请检查账号密码', 'error');
       }
     } catch {
-      showToast('无法连接鉴权服务器', 'error');
+      showToast('登录服务异常，请重试', 'error');
     } finally {
       setIsLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen w-full bg-gradient-to-br from-slate-900 via-blue-950 to-slate-900 flex items-center justify-center p-4 relative overflow-hidden">
-      {/* Background Glow Elements */}
-      <div className="absolute -top-32 -left-32 w-96 h-96 bg-blue-600/20 rounded-full blur-3xl pointer-events-none" />
-      <div className="absolute -bottom-32 -right-32 w-96 h-96 bg-indigo-600/20 rounded-full blur-3xl pointer-events-none" />
-
-      <div className="max-w-md w-full bg-white/10 dark:bg-gray-900/60 backdrop-blur-2xl border border-white/20 dark:border-gray-800 rounded-3xl p-6 sm:p-8 shadow-2xl space-y-6 relative z-10 text-white">
-        {/* Header Icon & Title */}
+    <div className="min-h-screen flex items-center justify-center p-4 bg-gradient-to-br from-slate-900 via-blue-950 to-indigo-950 text-white">
+      <div className="max-w-md w-full bg-slate-900/90 border border-slate-800 rounded-3xl p-6 sm:p-8 shadow-2xl backdrop-blur-xl space-y-6">
         <div className="text-center space-y-2">
-          <div className="w-16 h-16 rounded-2xl bg-gradient-to-tr from-blue-600 via-indigo-600 to-sky-500 mx-auto flex items-center justify-center font-black text-2xl shadow-lg shadow-blue-500/30">
-            狐
+          <div className="w-14 h-14 rounded-2xl bg-gradient-to-tr from-blue-600 to-indigo-600 flex items-center justify-center text-3xl mx-auto shadow-lg shadow-blue-500/30">
+            🦊
           </div>
-          <h1 className="text-2xl font-black tracking-tight bg-gradient-to-r from-white via-blue-100 to-blue-300 bg-clip-text text-transparent">
+          <h1 className="text-2xl font-black tracking-tight bg-gradient-to-r from-blue-400 to-sky-300 bg-clip-text text-transparent">
             白狐AI三
           </h1>
-          <p className="text-xs text-blue-200/80">
-            新一代极速 AI 图像绘制与大模型融合平台
+          <p className="text-xs text-slate-400">
+            简洁、移动端友好、零数据库依赖的 AI 绘图工作台
           </p>
         </div>
 
-        {/* Login Form */}
-        <form onSubmit={handleLogin} className="space-y-4">
-          <div className="space-y-1">
-            <label className="block text-xs font-semibold text-blue-200">
-              管理员账号 (Username)
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label className="block text-xs font-bold text-slate-300 mb-1">
+              账号 (Admin 或 任意访客用户名)
             </label>
-            <div className="relative">
-              <User size={16} className="absolute left-3.5 top-3.5 text-blue-300/70" />
-              <input
-                type="text"
-                required
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                placeholder="例如: admin"
-                className="w-full pl-10 pr-4 py-3 bg-white/10 dark:bg-gray-800/60 border border-white/15 dark:border-gray-700/60 rounded-xl text-sm placeholder-blue-200/40 text-white focus:outline-none focus:ring-2 focus:ring-blue-400 transition-all"
-              />
-            </div>
+            <input
+              type="text"
+              required
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              placeholder="例如: admin"
+              className="w-full px-4 py-3 rounded-xl bg-slate-800/80 border border-slate-700 text-xs text-white focus:ring-2 focus:ring-blue-500 focus:outline-none"
+            />
           </div>
 
-          <div className="space-y-1">
-            <label className="block text-xs font-semibold text-blue-200">
-              登录密码 (Password)
+          <div>
+            <label className="block text-xs font-bold text-slate-300 mb-1">
+              访问密码 (管理员初始密码: admin888)
             </label>
-            <div className="relative">
-              <KeyRound size={16} className="absolute left-3.5 top-3.5 text-blue-300/70" />
-              <input
-                type="password"
-                required
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="请输入密码 (默认: foxai123)"
-                className="w-full pl-10 pr-4 py-3 bg-white/10 dark:bg-gray-800/60 border border-white/15 dark:border-gray-700/60 rounded-xl text-sm placeholder-blue-200/40 text-white focus:outline-none focus:ring-2 focus:ring-blue-400 transition-all"
-              />
-            </div>
+            <input
+              type="password"
+              required
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="管理员默认密码 admin888"
+              className="w-full px-4 py-3 rounded-xl bg-slate-800/80 border border-slate-700 text-xs text-white focus:ring-2 focus:ring-blue-500 focus:outline-none"
+            />
           </div>
 
           <button
             type="submit"
             disabled={isLoading}
-            className="w-full py-3.5 bg-gradient-to-r from-blue-600 via-indigo-600 to-sky-500 hover:from-blue-700 hover:to-indigo-700 font-bold rounded-xl text-sm shadow-lg shadow-blue-500/25 transition-all active:scale-[0.98] disabled:opacity-50 min-h-[48px] flex items-center justify-center space-x-2"
+            className="w-full py-3.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-black text-sm rounded-xl shadow-lg transition"
           >
-            {isLoading ? (
-              <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-            ) : (
-              <>
-                <ShieldCheck size={18} />
-                <span>进入白狐AI三工作台</span>
-              </>
-            )}
+            {isLoading ? '🔐 验证加密令牌中...' : '🚀 登录进入 白狐AI三'}
           </button>
         </form>
 
-        <div className="text-center text-[10px] text-blue-200/50 pt-2 border-t border-white/10">
-          受 JWT 安全 Token 保护 · 出厂默认密码: <code className="text-blue-300 font-bold">foxai123</code>
+        <div className="p-3 bg-blue-950/40 border border-blue-900/50 rounded-xl text-[11px] text-blue-200/80 space-y-1">
+          <p className="font-bold text-blue-300">💡 提示：</p>
+          <p>管理员账号为 <code className="text-blue-200">admin</code>，初始密码为 <code className="text-blue-200">admin888</code>。可在部署环境变量中自定义 <code className="text-blue-200">ADMIN_PASSWORD</code>。</p>
         </div>
       </div>
     </div>

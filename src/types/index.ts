@@ -21,6 +21,8 @@ export interface AIModel {
   isFavorite?: boolean;
   isPopular?: boolean;
   isCustomAdded?: boolean;
+  isFree?: boolean;
+  needsApiKey?: boolean;
   recommendedReason?: string;
 }
 

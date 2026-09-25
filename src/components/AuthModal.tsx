@@ -1,8 +1,5 @@
-'use client';
-
 import React, { useState } from 'react';
 import { useApp } from '@/context/AppContext';
-import { X, Lock, KeyRound, UserPlus } from 'lucide-react';
 
 interface AuthModalProps {
   isOpen: boolean;
@@ -11,16 +8,16 @@ interface AuthModalProps {
 
 export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
   const { login, showToast } = useApp();
-  const [username, setUsername] = useState('');
-  const [password, setPassword] = useState('');
+  const [username, setUsername] = useState('admin');
+  const [password, setPassword] = useState('admin888');
   const [isLoading, setIsLoading] = useState(false);
 
   if (!isOpen) return null;
 
-  const handleLogin = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!username.trim() || !password.trim()) {
-      showToast('请完整填写用户名与密码', 'error');
+      showToast('请输入用户名和密码', 'error');
       return;
     }
 
@@ -32,74 +29,75 @@ export const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose }) => {
         body: JSON.stringify({ username: username.trim(), password: password.trim() }),
       });
 
-      const data = await res.json();
-      if (data.success && data.data?.token) {
-        login(data.data.token, data.data.username);
+      const json = await res.json();
+      if (json.success && json.data) {
+        login(json.data.token, json.data.username);
         onClose();
       } else {
-        showToast(data.error || '登录失败，请核对密码', 'error');
+        showToast(json.error || '登录失败', 'error');
       }
     } catch {
-      showToast('鉴权服务器请求超时或失败', 'error');
+      showToast('登录网络异常', 'error');
     } finally {
       setIsLoading(false);
     }
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
-      <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-3xl max-w-sm w-full p-6 space-y-4 shadow-2xl relative">
-        <button
-          onClick={onClose}
-          className="absolute top-4 right-4 p-1 rounded-full text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
-        >
-          <X size={18} />
-        </button>
-
-        <div className="text-center space-y-1">
-          <div className="w-12 h-12 rounded-2xl bg-blue-600 text-white mx-auto flex items-center justify-center font-bold text-xl shadow-md">
-            狐
-          </div>
-          <h3 className="font-bold text-base text-gray-900 dark:text-white">管理员安全身份验证</h3>
-          <p className="text-xs text-gray-500 dark:text-gray-400">白狐AI三无数据库安全登录</p>
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-md">
+      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl max-w-sm w-full p-6 space-y-4 shadow-2xl">
+        <div className="flex items-center justify-between">
+          <h3 className="font-black text-base text-slate-900 dark:text-white flex items-center gap-2">
+            <span>🔐 重新登录与切换账号</span>
+          </h3>
+          <button onClick={onClose} className="text-slate-400 hover:text-slate-600 font-bold">
+            ✕
+          </button>
         </div>
 
-        <form onSubmit={handleLogin} className="space-y-3">
+        <form onSubmit={handleSubmit} className="space-y-3">
           <div>
-            <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">
-              账号 Username
+            <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+              用户名
             </label>
             <input
               type="text"
               required
               value={username}
               onChange={(e) => setUsername(e.target.value)}
-              placeholder="默认: admin"
-              className="w-full px-3.5 py-2.5 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl text-xs"
+              className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs"
             />
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-gray-700 dark:text-gray-300 mb-1">
-              密码 Password
+            <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
+              密码 (管理员默认密码: admin888)
             </label>
             <input
               type="password"
               required
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              placeholder="默认密码: foxai123"
-              className="w-full px-3.5 py-2.5 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl text-xs"
+              className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs"
             />
           </div>
 
-          <button
-            type="submit"
-            disabled={isLoading}
-            className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl text-xs transition-colors shadow-md"
-          >
-            {isLoading ? '登录验证中...' : '确认登录'}
-          </button>
+          <div className="pt-2 flex justify-end gap-2">
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-4 py-2 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 rounded-xl text-xs font-bold"
+            >
+              取消
+            </button>
+            <button
+              type="submit"
+              disabled={isLoading}
+              className="px-4 py-2 bg-blue-600 text-white rounded-xl text-xs font-bold"
+            >
+              {isLoading ? '登录中...' : '确认登录'}
+            </button>
+          </div>
         </form>
       </div>
     </div>

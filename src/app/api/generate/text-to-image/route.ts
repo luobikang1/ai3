@@ -85,13 +85,65 @@ export async function POST(req: NextRequest) {
     const cfApiToken = clientCfToken || process.env.CLOUDFLARE_API_TOKEN;
     const cfAccountId = clientCfAccount || process.env.CLOUDFLARE_ACCOUNT_ID;
 
-    const effectiveEngine = computeEngine || 'pollinations';
-
     const generateSingleImage = async (currentSeed: number): Promise<{ url: string; providerUsed: string }> => {
       const attemptedErrors: string[] = [];
 
-      // 1. SILICONFLOW
-      if (effectiveEngine === 'siliconflow' || siliconApiKey) {
+      // 1. CLOUDFLARE WORKERS AI (Prioritized if model is @cf/ or computeEngine is cloudflare-ai or credentials present)
+      if (model.startsWith('@cf/') || computeEngine === 'cloudflare-ai' || (cfApiToken && cfAccountId)) {
+        if (cfApiToken && cfAccountId) {
+          try {
+            const cfModel = model.startsWith('@cf/') ? model : '@cf/bytedance/stable-diffusion-xl-lightning';
+            const cfEndpoint = `https://api.cloudflare.com/client/v4/accounts/${cfAccountId}/ai/run/${cfModel}`;
+
+            const cfPayload: any = {
+              prompt: prompt.trim(),
+              negative_prompt: negativePrompt,
+              width: resBucket.width,
+              height: resBucket.height,
+              num_steps: Math.min(Math.max(Number(steps) || 25, 1), 50),
+              guidance: Number(guidance) || 8.0,
+              seed: currentSeed,
+            };
+
+            const cfResponse = await fetchWithRetry(cfEndpoint, {
+              method: 'POST',
+              headers: {
+                Authorization: `Bearer ${cfApiToken}`,
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify(cfPayload),
+              timeoutMs: 30000,
+              maxRetries: 2,
+            });
+
+            if (cfResponse.ok) {
+              const contentType = cfResponse.headers.get('content-type') || '';
+              if (contentType.includes('application/json')) {
+                const jsonResult = await cfResponse.json();
+                if (jsonResult.result?.image) {
+                  const img = jsonResult.result.image.startsWith('data:')
+                    ? jsonResult.result.image
+                    : `data:image/png;base64,${jsonResult.result.image}`;
+                  return { url: img, providerUsed: 'Cloudflare Workers AI 边缘节点' };
+                }
+              }
+              const arrayBuffer = await cfResponse.arrayBuffer();
+              const base64 = arrayBufferToBase64(arrayBuffer);
+              const mime = contentType.includes('image/jpeg') ? 'image/jpeg' : 'image/png';
+              return { url: `data:${mime};base64,${base64}`, providerUsed: 'Cloudflare Workers AI 边缘节点' };
+            } else {
+              attemptedErrors.push(await parseErrorResponse(cfResponse, 'Cloudflare AI 节点错误'));
+            }
+          } catch (e: any) {
+            attemptedErrors.push(`Cloudflare Workers AI 错误: ${e.message}`);
+          }
+        } else if (model.startsWith('@cf/')) {
+          attemptedErrors.push('未配置 Cloudflare Account ID 和 API Token，请在「设置」中填入 Key');
+        }
+      }
+
+      // 2. SILICONFLOW
+      if (computeEngine === 'siliconflow' || siliconApiKey) {
         if (siliconApiKey) {
           try {
             const siliconModel = model.includes('/') ? model : 'black-forest-labs/FLUX.1-schnell';
@@ -129,8 +181,8 @@ export async function POST(req: NextRequest) {
         }
       }
 
-      // 2. OPENAI DALL-E 3
-      if (effectiveEngine === 'openai' || model.startsWith('dall-e') || openaiApiKey) {
+      // 3. OPENAI DALL-E 3
+      if (computeEngine === 'openai' || model.startsWith('dall-e') || openaiApiKey) {
         if (openaiApiKey) {
           try {
             const oaiRes = await fetchWithRetry('https://api.openai.com/v1/images/generations', {
@@ -164,56 +216,6 @@ export async function POST(req: NextRequest) {
             }
           } catch (e: any) {
             attemptedErrors.push(`OpenAI DALL-E 错误: ${e.message}`);
-          }
-        }
-      }
-
-      // 3. CLOUDFLARE WORKERS AI
-      if (effectiveEngine === 'cloudflare-ai' || model.startsWith('@cf/') || cfApiToken) {
-        if (cfApiToken && cfAccountId) {
-          try {
-            const cfModel = model.startsWith('@cf/') ? model : '@cf/bytedance/stable-diffusion-xl-lightning';
-            const cfEndpoint = `https://api.cloudflare.com/client/v4/accounts/${cfAccountId}/ai/run/${cfModel}`;
-
-            const cfResponse = await fetchWithRetry(cfEndpoint, {
-              method: 'POST',
-              headers: {
-                Authorization: `Bearer ${cfApiToken}`,
-                'Content-Type': 'application/json',
-              },
-              body: JSON.stringify({
-                prompt: prompt.trim(),
-                negative_prompt: negativePrompt,
-                width: resBucket.width,
-                height: resBucket.height,
-                num_steps: Math.min(Math.max(Number(steps) || 25, 1), 50),
-                guidance: Number(guidance) || 8.0,
-                seed: currentSeed,
-              }),
-              timeoutMs: 30000,
-              maxRetries: 2,
-            });
-
-            if (cfResponse.ok) {
-              const contentType = cfResponse.headers.get('content-type') || '';
-              if (contentType.includes('application/json')) {
-                const jsonResult = await cfResponse.json();
-                if (jsonResult.result?.image) {
-                  const img = jsonResult.result.image.startsWith('data:')
-                    ? jsonResult.result.image
-                    : `data:image/png;base64,${jsonResult.result.image}`;
-                  return { url: img, providerUsed: 'Cloudflare Workers AI' };
-                }
-              }
-              const arrayBuffer = await cfResponse.arrayBuffer();
-              const base64 = arrayBufferToBase64(arrayBuffer);
-              const mime = contentType.includes('image/jpeg') ? 'image/jpeg' : 'image/png';
-              return { url: `data:${mime};base64,${base64}`, providerUsed: 'Cloudflare Workers AI' };
-            } else {
-              attemptedErrors.push(await parseErrorResponse(cfResponse, 'Cloudflare AI 节点错误'));
-            }
-          } catch (e: any) {
-            attemptedErrors.push(`Cloudflare Workers AI 错误: ${e.message}`);
           }
         }
       }

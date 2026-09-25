@@ -1,25 +1,31 @@
--- Cloudflare D1 Database Schema for Baihu AI Three
+-- Schema for Cloudflare D1 Database (Optional Cloud Sync)
 
--- History Table
 CREATE TABLE IF NOT EXISTS history (
-  id TEXT PRIMARY KEY,
-  imageUrl TEXT NOT NULL,
-  prompt TEXT NOT NULL,
-  negativePrompt TEXT,
-  width INTEGER,
-  height INTEGER,
-  aspectRatio TEXT,
-  model TEXT,
-  steps INTEGER,
-  guidance INTEGER,
-  modelName TEXT,
-  createdAt INTEGER
+    id TEXT PRIMARY KEY,
+    image_url TEXT NOT NULL,
+    prompt TEXT NOT NULL,
+    negative_prompt TEXT,
+    model_name TEXT NOT NULL,
+    params_json TEXT NOT NULL,
+    generation_time_ms INTEGER,
+    created_at INTEGER NOT NULL
 );
 
--- Users Table for Optional Database User Auth
 CREATE TABLE IF NOT EXISTS users (
-  id TEXT PRIMARY KEY,
-  username TEXT NOT NULL UNIQUE,
-  passwordHash TEXT NOT NULL,
-  createdAt INTEGER NOT NULL
+    username TEXT PRIMARY KEY,
+    password_hash TEXT NOT NULL,
+    role TEXT DEFAULT 'user',
+    created_at INTEGER NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS user_settings (
+    username TEXT PRIMARY KEY,
+    settings_json TEXT NOT NULL,
+    updated_at INTEGER NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS user_favorites (
+    username TEXT PRIMARY KEY,
+    favorites_json TEXT NOT NULL,
+    updated_at INTEGER NOT NULL
 );

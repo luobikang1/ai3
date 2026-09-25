@@ -4,114 +4,69 @@ export const runtime = 'edge';
 
 export async function GET(req: NextRequest) {
   try {
-    const env = (process as any).env || {};
-    const db = env.DB || (globalThis as any).DB;
+    const env = (process.env as any) || {};
+    const d1 = env.DB;
 
-    if (!db) {
+    if (!d1) {
       return NextResponse.json({
-        success: true,
-        data: [],
-        message: '未挂载 D1 数据库，使用本地 IndexedDB 存储',
+        success: false,
+        history: [],
+        message: '未配置 D1 数据库',
       });
     }
 
-    const { results } = await db
-      .prepare('SELECT * FROM history ORDER BY createdAt DESC LIMIT 100')
+    const { results } = await d1
+      .prepare('SELECT * FROM history ORDER BY created_at DESC LIMIT 50')
       .all();
 
     const formatted = (results || []).map((row: any) => ({
       id: row.id,
-      imageUrl: row.imageUrl,
-      params: {
-        prompt: row.prompt,
-        negativePrompt: row.negativePrompt,
-        width: row.width,
-        height: row.height,
-        aspectRatio: row.aspectRatio,
-        model: row.model,
-        steps: row.steps,
-        guidance: row.guidance,
-      },
-      createdAt: row.createdAt,
-      modelName: row.modelName,
+      imageUrl: row.image_url,
+      modelName: row.model_name,
+      createdAt: row.created_at,
+      generationTimeMs: row.generation_time_ms,
+      params: row.params_json ? JSON.parse(row.params_json) : {},
     }));
 
-    return NextResponse.json({ success: true, data: formatted });
-  } catch (error: any) {
-    return NextResponse.json({ success: true, data: [], message: error?.message });
+    return NextResponse.json({
+      success: true,
+      history: formatted,
+    });
+  } catch (err: any) {
+    return NextResponse.json({ success: false, error: err.message }, { status: 500 });
   }
 }
 
 export async function POST(req: NextRequest) {
   try {
-    const env = (process as any).env || {};
-    const db = env.DB || (globalThis as any).DB;
+    const body = await req.json();
+    const { id, imageUrl, prompt, negativePrompt, modelName, params, generationTimeMs, createdAt } = body;
 
-    if (!db) {
-      return NextResponse.json({
-        success: true,
-        message: '本地模式存储成功',
-      });
+    const env = (process.env as any) || {};
+    const d1 = env.DB;
+
+    if (!d1) {
+      return NextResponse.json({ success: false, message: 'D1 未绑定，跳过云端落库' });
     }
 
-    const item = await req.json();
-    const { id, imageUrl = '', params, createdAt, modelName } = item;
-
-    // D1 SQL statement size optimization: if imageUrl exceeds ~200KB, store a preview indicator
-    // Full high-res image remains stored safely in local IndexedDB.
-    let storedImageUrl = imageUrl;
-    if (imageUrl.length > 200000) {
-      storedImageUrl = imageUrl.substring(0, 100) + '...[IndexedDB_Local_Full_Res]';
-    }
-
-    await db
+    await d1
       .prepare(
-        `INSERT OR REPLACE INTO history
-        (id, imageUrl, prompt, negativePrompt, width, height, aspectRatio, model, steps, guidance, modelName, createdAt)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+        'INSERT INTO history (id, image_url, prompt, negative_prompt, model_name, params_json, generation_time_ms, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
       )
       .bind(
-        id,
-        storedImageUrl,
-        params?.prompt || '',
-        params?.negativePrompt || '',
-        params?.width || 1024,
-        params?.height || 1024,
-        params?.aspectRatio || '1:1',
-        params?.model || '',
-        params?.steps || 20,
-        params?.guidance || 7.5,
-        modelName || '',
+        id || `img_${Date.now()}`,
+        imageUrl,
+        prompt || '',
+        negativePrompt || '',
+        modelName || 'FLUX.1',
+        JSON.stringify(params || {}),
+        generationTimeMs || 1000,
         createdAt || Date.now()
       )
       .run();
 
-    return NextResponse.json({ success: true, message: 'D1 数据库同步成功' });
-  } catch (error: any) {
-    return NextResponse.json({ success: true, message: error?.message });
-  }
-}
-
-export async function DELETE(req: NextRequest) {
-  try {
-    const env = (process as any).env || {};
-    const db = env.DB || (globalThis as any).DB;
-
-    if (!db) {
-      return NextResponse.json({ success: true });
-    }
-
-    const { searchParams } = new URL(req.url);
-    const id = searchParams.get('id');
-
-    if (id) {
-      await db.prepare('DELETE FROM history WHERE id = ?').bind(id).run();
-    } else {
-      await db.prepare('DELETE FROM history').run();
-    }
-
-    return NextResponse.json({ success: true });
-  } catch (error: any) {
-    return NextResponse.json({ success: true, message: error?.message });
+    return NextResponse.json({ success: true, message: '历史记录已归档到 D1' });
+  } catch (err: any) {
+    return NextResponse.json({ success: false, error: err.message }, { status: 500 });
   }
 }
