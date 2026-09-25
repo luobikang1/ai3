@@ -40,7 +40,7 @@ export default function Home() {
             {activeTab === 'txt2img' && <Txt2ImgTab />}
             {activeTab === 'img2img' && <Img2ImgTab />}
             {activeTab === 'edit' && <ImageEditorTab />}
-            {activeTab === 'models' && <ModelSelector isFullPage />}
+            {activeTab === 'models' && <ModelSelector />}
             {activeTab === 'history' && <HistoryTab />}
             {activeTab === 'settings' && <SettingsTab />}
           </main>

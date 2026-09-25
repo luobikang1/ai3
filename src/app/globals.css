@@ -1,18 +1,39 @@
 @import "tailwindcss";
 
+@custom-variant dark (&:where(.dark, .dark *));
+
 @layer base {
   :root {
-    --background: #f9fafb;
-    --foreground: #111827;
+    --background: #f8fafc;
+    --foreground: #0f172a;
   }
 
   .dark {
-    --background: #030712;
-    --foreground: #f9fafb;
+    --background: #020617;
+    --foreground: #f8fafc;
+  }
+
+  html {
+    color-scheme: light;
+  }
+
+  html.dark {
+    color-scheme: dark;
   }
 
   body {
     background-color: var(--background);
     color: var(--foreground);
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
   }
+}
+
+/* Custom Hide Scrollbar for Mobile Pills */
+.scrollbar-none::-webkit-scrollbar {
+  display: none;
+}
+.scrollbar-none {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
 }

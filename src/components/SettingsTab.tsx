@@ -1,9 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useApp } from '@/context/AppContext';
 import { COMPUTE_ENGINES } from '@/lib/constants';
 
 export const SettingsTab: React.FC = () => {
-  const { settings, updateSettings, showToast, isDarkMode, toggleDarkMode } = useApp();
+  const { settings, updateSettings, showToast, isDarkMode, toggleDarkMode, auth } = useApp();
 
   const [computeEngine, setComputeEngine] = useState(settings.computeEngine || 'pollinations');
   const [cfApiToken, setCfApiToken] = useState(settings.cfApiToken || '');
@@ -11,14 +11,56 @@ export const SettingsTab: React.FC = () => {
   const [siliconApiKey, setSiliconApiKey] = useState(settings.siliconApiKey || '');
   const [openaiApiKey, setOpenaiApiKey] = useState(settings.openaiApiKey || '');
   const [stabilityApiKey, setStabilityApiKey] = useState(settings.stabilityApiKey || '');
-  const [hfApiKey, setHfApiKey] = useState(settings.hfApiKey || '');
-  const [falApiKey, setFalApiKey] = useState(settings.falApiKey || '');
+  const [enableNsfw, setEnableNsfw] = useState(false);
 
-  const [defaultModel, setDefaultModel] = useState(settings.defaultModel || 'black-forest-labs/FLUX.1-schnell');
-  const [defaultBatchCount, setDefaultBatchCount] = useState(settings.defaultBatchCount || 1);
-  const [defaultSteps, setDefaultSteps] = useState(settings.defaultSteps || 25);
-  const [defaultGuidance, setDefaultGuidance] = useState(settings.defaultGuidance || 8.0);
-  const [defaultNegativePrompt, setDefaultNegativePrompt] = useState(settings.defaultNegativePrompt || '');
+  // Cloudflare D1 Connection State
+  const [d1Status, setD1Status] = useState<{ connected: boolean; message: string }>({
+    connected: false,
+    message: '正在检测 D1 数据库状态...',
+  });
+  const [isSyncingD1, setIsSyncingD1] = useState(false);
+
+  useEffect(() => {
+    checkD1Connection();
+  }, []);
+
+  const checkD1Connection = async () => {
+    try {
+      const res = await fetch('/api/d1/sync');
+      const json = await res.json();
+      setD1Status({
+        connected: json.connected,
+        message: json.message || (json.connected ? 'Cloudflare D1 已激活离线/在线云同步' : '未绑定 D1 数据库，使用本地存储'),
+      });
+    } catch {
+      setD1Status({ connected: false, message: '浏览器本地独占存储 (无数据库依赖)' });
+    }
+  };
+
+  const handleSyncD1Push = async () => {
+    setIsSyncingD1(true);
+    try {
+      const res = await fetch('/api/d1/sync', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'push',
+          username: auth.username || 'admin',
+          settingsData: settings,
+        }),
+      });
+      const json = await res.json();
+      if (json.success) {
+        showToast(json.message || '手动推送设置到 D1 成功！', 'success');
+      } else {
+        showToast(json.message || json.error || 'D1 同步未完成', 'info');
+      }
+    } catch (e) {
+      showToast('同步处理失败，请确认 wrangler.toml 配置', 'error');
+    } finally {
+      setIsSyncingD1(false);
+    }
+  };
 
   const handleSave = () => {
     updateSettings({
@@ -28,56 +70,74 @@ export const SettingsTab: React.FC = () => {
       siliconApiKey: siliconApiKey.trim(),
       openaiApiKey: openaiApiKey.trim(),
       stabilityApiKey: stabilityApiKey.trim(),
-      hfApiKey: hfApiKey.trim(),
-      falApiKey: falApiKey.trim(),
-      defaultModel,
-      defaultBatchCount: Number(defaultBatchCount),
-      defaultSteps: Number(defaultSteps),
-      defaultGuidance: Number(defaultGuidance),
-      defaultNegativePrompt: defaultNegativePrompt.trim(),
     });
-    showToast('设置已成功保存！', 'success');
-  };
-
-  const handleResetFactory = () => {
-    if (confirm('确定要恢复出厂设置吗？这将重置所有 Key 和偏好配置。')) {
-      localStorage.clear();
-      window.location.reload();
-    }
+    showToast('全局设置已成功保存！', 'success');
   };
 
   return (
-    <div className="max-w-3xl mx-auto space-y-6 pb-20">
-      <div className="bg-gradient-to-r from-blue-600 to-indigo-600 rounded-2xl p-6 text-white shadow-xl flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
-        <div>
-          <h2 className="text-2xl font-black tracking-tight flex items-center gap-2">
-            ⚙️ 融合算力与全域设置
-          </h2>
-          <p className="text-blue-100 text-xs mt-1">
-            配置 Cloudflare, SiliconFlow, OpenAI, Stability AI 等全网算力 Key，实现低延迟无缝出图
-          </p>
+    <div className="max-w-3xl mx-auto space-y-5 pb-20">
+      {/* Cloudflare D1 Cloud Sync Banner */}
+      <div className="bg-white dark:bg-slate-900 rounded-2xl p-5 border border-slate-200 dark:border-slate-800 shadow-sm space-y-3">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <span className="text-base">☁️</span>
+            <span className="text-xs font-black text-slate-800 dark:text-slate-100">
+              Cloudflare D1 数据库状态与一键同步
+            </span>
+          </div>
+
+          <span
+            className={`px-2.5 py-1 rounded-full text-[10px] font-black ${
+              d1Status.connected
+                ? 'bg-emerald-100 dark:bg-emerald-950 text-emerald-600 dark:text-emerald-300'
+                : 'bg-slate-100 dark:bg-slate-800 text-slate-500'
+            }`}
+          >
+            {d1Status.connected ? '✓ D1 已连通' : '○ 仅本地存储'}
+          </span>
         </div>
-        <button
-          onClick={handleSave}
-          className="px-6 py-2.5 bg-white text-blue-600 hover:bg-blue-50 font-bold rounded-xl shadow-lg transition duration-200 text-sm whitespace-nowrap self-stretch md:self-auto text-center"
-        >
-          保存全局配置
-        </button>
+
+        <p className="text-xs text-slate-500 dark:text-slate-400">{d1Status.message}</p>
+
+        <div className="flex items-center gap-2 pt-1">
+          <button
+            onClick={handleSyncD1Push}
+            disabled={isSyncingD1}
+            className="px-3.5 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-xs font-bold transition shadow-sm"
+          >
+            {isSyncingD1 ? '⏳ 同步中...' : '⬆️ 手动同步设置到 D1'}
+          </button>
+          <button
+            onClick={checkD1Connection}
+            className="px-3.5 py-1.5 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300 rounded-xl text-xs font-bold hover:bg-slate-200 transition"
+          >
+            🔄 重新检测状态
+          </button>
+        </div>
       </div>
 
-      <div className="bg-white dark:bg-slate-800 rounded-2xl p-5 border border-slate-200/80 dark:border-slate-700/80 shadow-sm space-y-5">
-        <h3 className="text-base font-extrabold text-slate-800 dark:text-white flex items-center gap-2">
-          🚀 默认算力引擎 (Compute Engine)
-        </h3>
+      {/* Compute Engine & API Key Setup */}
+      <div className="bg-white dark:bg-slate-900 rounded-2xl p-5 border border-slate-200 dark:border-slate-800 shadow-sm space-y-4">
+        <div className="flex items-center justify-between">
+          <h3 className="text-xs font-black text-slate-800 dark:text-white flex items-center gap-2">
+            🚀 融合算力引擎选择
+          </h3>
+          <button
+            onClick={handleSave}
+            className="px-4 py-1.5 bg-blue-600 text-white font-bold rounded-xl text-xs shadow-md hover:bg-blue-700 transition"
+          >
+            保存配置
+          </button>
+        </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           {COMPUTE_ENGINES.map((engine) => (
             <label
               key={engine.id}
-              className={`flex items-start p-3.5 rounded-xl border cursor-pointer transition ${
+              className={`flex items-start p-3 rounded-xl border cursor-pointer transition ${
                 computeEngine === engine.id
-                  ? 'border-blue-500 bg-blue-50/60 dark:bg-blue-900/20 ring-2 ring-blue-500/20'
-                  : 'border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/50 hover:bg-slate-100 dark:hover:bg-slate-700/50'
+                  ? 'border-blue-500 bg-blue-50/60 dark:bg-blue-950/30 ring-1 ring-blue-500'
+                  : 'border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-950/50'
               }`}
             >
               <input
@@ -86,18 +146,13 @@ export const SettingsTab: React.FC = () => {
                 value={engine.id}
                 checked={computeEngine === engine.id}
                 onChange={(e) => setComputeEngine(e.target.value)}
-                className="mt-1 text-blue-600 focus:ring-blue-500"
+                className="mt-1 text-blue-600"
               />
-              <div className="ml-3">
-                <div className="text-sm font-bold text-slate-800 dark:text-slate-100 flex items-center gap-2">
+              <div className="ml-2.5">
+                <div className="text-xs font-extrabold text-slate-800 dark:text-slate-100">
                   {engine.name}
-                  {engine.isDefault && (
-                    <span className="text-[10px] px-2 py-0.5 rounded-md bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300 font-semibold">
-                      免费免 Key
-                    </span>
-                  )}
                 </div>
-                <div className="text-xs text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">
+                <div className="text-[10px] text-slate-500 dark:text-slate-400 mt-0.5">
                   {engine.description}
                 </div>
               </div>
@@ -105,172 +160,84 @@ export const SettingsTab: React.FC = () => {
           ))}
         </div>
 
-        <div className="pt-4 border-t border-slate-200 dark:border-slate-700 space-y-4">
-          <h4 className="text-xs font-bold uppercase tracking-wider text-slate-400 dark:text-slate-500">
-            开放算力平台 Key 配置 (可选，配后提升画质与速度)
-          </h4>
-
-          <div>
-            <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-              SiliconFlow (硅基流动 API Key)
-            </label>
-            <input
-              type="password"
-              placeholder="sk-..."
-              value={siliconApiKey}
-              onChange={(e) => setSiliconApiKey(e.target.value)}
-              className="w-full px-3.5 py-2 rounded-xl text-xs bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-800 dark:text-slate-100"
-            />
-          </div>
-
-          <div>
-            <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-              OpenAI API Key (DALL-E 3)
-            </label>
-            <input
-              type="password"
-              placeholder="sk-..."
-              value={openaiApiKey}
-              onChange={(e) => setOpenaiApiKey(e.target.value)}
-              className="w-full px-3.5 py-2 rounded-xl text-xs bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-800 dark:text-slate-100"
-            />
-          </div>
-
-          <div>
-            <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-              Stability AI API Key (SDXL 1.0)
-            </label>
-            <input
-              type="password"
-              placeholder="sk-..."
-              value={stabilityApiKey}
-              onChange={(e) => setStabilityApiKey(e.target.value)}
-              className="w-full px-3.5 py-2 rounded-xl text-xs bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-800 dark:text-slate-100"
-            />
-          </div>
+        {/* API Keys Input */}
+        <div className="pt-3 border-t border-slate-100 dark:border-slate-800 space-y-3">
+          <span className="text-[11px] font-bold text-slate-400 block uppercase">
+            自定义算力 API Key 配置 (可选)
+          </span>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                Cloudflare Account ID
-              </label>
-              <input
-                type="text"
-                placeholder="例如: a1b2c3d4..."
-                value={cfAccountId}
-                onChange={(e) => setCfAccountId(e.target.value)}
-                className="w-full px-3.5 py-2 rounded-xl text-xs bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-800 dark:text-slate-100"
-              />
-            </div>
-            <div>
-              <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-                Cloudflare AI Token
+              <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1">
+                SiliconFlow Key
               </label>
               <input
                 type="password"
-                placeholder="例如: Bearer token..."
-                value={cfApiToken}
-                onChange={(e) => setCfApiToken(e.target.value)}
-                className="w-full px-3.5 py-2 rounded-xl text-xs bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-800 dark:text-slate-100"
+                placeholder="sk-..."
+                value={siliconApiKey}
+                onChange={(e) => setSiliconApiKey(e.target.value)}
+                className="w-full px-3 py-1.5 rounded-xl text-xs bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800"
+              />
+            </div>
+
+            <div>
+              <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1">
+                OpenAI API Key
+              </label>
+              <input
+                type="password"
+                placeholder="sk-..."
+                value={openaiApiKey}
+                onChange={(e) => setOpenaiApiKey(e.target.value)}
+                className="w-full px-3 py-1.5 rounded-xl text-xs bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800"
               />
             </div>
           </div>
         </div>
       </div>
 
-      <div className="bg-white dark:bg-slate-800 rounded-2xl p-5 border border-slate-200/80 dark:border-slate-700/80 shadow-sm space-y-4">
-        <h3 className="text-base font-extrabold text-slate-800 dark:text-white flex items-center gap-2">
-          🎯 出厂预设与生图偏好
-        </h3>
-
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div>
-            <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-              默认单次生成张数
-            </label>
-            <select
-              value={defaultBatchCount}
-              onChange={(e) => setDefaultBatchCount(Number(e.target.value))}
-              className="w-full px-3.5 py-2 rounded-xl text-xs bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-800 dark:text-slate-100"
-            >
-              <option value={1}>1 张 (默认极速)</option>
-              <option value={2}>2 张 (并行抽卡)</option>
-              <option value={4}>4 张 (矩阵四格)</option>
-            </select>
-          </div>
-
-          <div>
-            <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-              默认采样步数 (Steps)
-            </label>
-            <input
-              type="number"
-              min={10}
-              max={50}
-              value={defaultSteps}
-              onChange={(e) => setDefaultSteps(Number(e.target.value))}
-              className="w-full px-3.5 py-2 rounded-xl text-xs bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-800 dark:text-slate-100"
-            />
-          </div>
-
-          <div>
-            <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-              引导系数 (CFG Scale)
-            </label>
-            <input
-              type="number"
-              step={0.5}
-              min={1}
-              max={20}
-              value={defaultGuidance}
-              onChange={(e) => setDefaultGuidance(Number(e.target.value))}
-              className="w-full px-3.5 py-2 rounded-xl text-xs bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-800 dark:text-slate-100"
-            />
-          </div>
-        </div>
-
+      {/* Safety & Content Filter Switch */}
+      <div className="bg-white dark:bg-slate-900 rounded-2xl p-5 border border-slate-200 dark:border-slate-800 shadow-sm flex items-center justify-between">
         <div>
-          <label className="block text-xs font-bold text-slate-700 dark:text-slate-300 mb-1">
-            通用底线反向提示词 (Negative Prompt)
-          </label>
-          <textarea
-            rows={2}
-            value={defaultNegativePrompt}
-            onChange={(e) => setDefaultNegativePrompt(e.target.value)}
-            className="w-full p-3 rounded-xl text-xs bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500 text-slate-800 dark:text-slate-100"
-          />
+          <div className="text-xs font-black text-slate-800 dark:text-slate-100">
+            🛡️ 敏感内容安全过滤开关 (NSFW Guard)
+          </div>
+          <div className="text-[11px] text-slate-400 mt-0.5">
+            开启后默认自动屏蔽不宜画面及血腥敏感关键词
+          </div>
         </div>
+
+        <label className="relative inline-flex items-center cursor-pointer">
+          <input
+            type="checkbox"
+            checked={!enableNsfw}
+            onChange={(e) => setEnableNsfw(!e.target.checked)}
+            className="sr-only peer"
+          />
+          <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer dark:bg-slate-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+        </label>
       </div>
 
-      <div className="bg-white dark:bg-slate-800 rounded-2xl p-5 border border-slate-200/80 dark:border-slate-700/80 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-4">
+      {/* System Mode Switch */}
+      <div className="bg-white dark:bg-slate-900 rounded-2xl p-5 border border-slate-200 dark:border-slate-800 shadow-sm flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-blue-50 dark:bg-slate-700 flex items-center justify-center text-lg">
-            {isDarkMode ? '🌙' : '☀️'}
-          </div>
+          <span className="text-xl">{isDarkMode ? '🌙' : '☀️'}</span>
           <div>
-            <div className="text-sm font-extrabold text-slate-800 dark:text-slate-100">
-              主题外观 (深色/浅色模式)
+            <div className="text-xs font-black text-slate-800 dark:text-slate-100">
+              夜间模式 (Dark Mode)
             </div>
-            <div className="text-xs text-slate-500 dark:text-slate-400">
-              当前为 {isDarkMode ? '夜间夜光深色模式' : '日间极简浅色模式'}
+            <div className="text-[11px] text-slate-400">
+              切换高对比度夜光深色视觉主题
             </div>
           </div>
         </div>
 
-        <div className="flex items-center gap-3 w-full sm:w-auto">
-          <button
-            onClick={toggleDarkMode}
-            className="flex-1 sm:flex-none px-4 py-2 rounded-xl text-xs font-bold bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-600 transition"
-          >
-            切换模式
-          </button>
-          <button
-            onClick={handleResetFactory}
-            className="flex-1 sm:flex-none px-4 py-2 rounded-xl text-xs font-bold bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400 hover:bg-rose-100 border border-rose-200 dark:border-rose-900 transition"
-          >
-            恢复出厂设置
-          </button>
-        </div>
+        <button
+          onClick={toggleDarkMode}
+          className="px-4 py-2 bg-slate-100 dark:bg-slate-800 text-slate-800 dark:text-slate-200 rounded-xl text-xs font-bold hover:bg-slate-200 transition"
+        >
+          {isDarkMode ? '切换浅色' : '切换夜间'}
+        </button>
       </div>
     </div>
   );
