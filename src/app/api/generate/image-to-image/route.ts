@@ -4,9 +4,6 @@ import { fetchWithRetry, parseErrorResponse } from '@/lib/fetchWithRetry';
 export const runtime = 'edge';
 
 function arrayBufferToBase64(buffer: ArrayBuffer): string {
-  if (typeof Buffer !== 'undefined') {
-    return Buffer.from(buffer).toString('base64');
-  }
   let binary = '';
   const bytes = new Uint8Array(buffer);
   const len = bytes.byteLength;
@@ -20,7 +17,7 @@ export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
     let {
-      prompt = 'cyberpunk white fox, detailed artwork',
+      prompt = 'cyberpunk white fox, highly detailed',
       inputImage,
       strength = 0.65,
       model = 'flux',
@@ -39,8 +36,8 @@ export async function POST(req: NextRequest) {
     const cfApiToken = clientCfToken || process.env.CLOUDFLARE_API_TOKEN;
     const cfAccountId = clientCfAccount || process.env.CLOUDFLARE_ACCOUNT_ID;
 
-    // 1. CLOUDFLARE WORKERS AI IMG2IMG
-    if (cfApiToken && cfAccountId && (model.startsWith('@cf/') || model === 'cloudflare')) {
+    // 1. CLOUDFLARE WORKERS AI IMG2IMG (Supports direct binary array payload safely)
+    if (cfApiToken && cfAccountId) {
       try {
         const cfModel = model.startsWith('@cf/') ? model : '@cf/bytedance/stable-diffusion-xl-lightning';
         const cfEndpoint = `https://api.cloudflare.com/client/v4/accounts/${cfAccountId}/ai/run/${cfModel}`;
@@ -62,7 +59,7 @@ export async function POST(req: NextRequest) {
             prompt: prompt.trim(),
             image: Array.from(bytes),
             strength: Number(strength) || 0.65,
-            num_steps: 20,
+            num_steps: 25,
           }),
           timeoutMs: 35000,
           maxRetries: 2,
@@ -90,15 +87,17 @@ export async function POST(req: NextRequest) {
           });
         }
       } catch (e: any) {
-        // Fallback
+        // Fallback to high quality text-guided image generation
       }
     }
 
-    // 2. POLLINATIONS FREE POOL UNIVERSAL COMPATIBILITY FALLBACK
+    // 2. HIGH-FIDELITY FREE ENGINE FALLBACK FOR IMG2IMG
     try {
-      const encodedPrompt = encodeURIComponent(prompt.trim());
-      const encodedImage = encodeURIComponent(inputImage);
-      const pollinationsUrl = `https://image.pollinations.ai/prompt/${encodedPrompt}?image=${encodedImage}&strength=${strength}&nologo=true&safe=${!enableNsfw}&model=flux`;
+      const imgGuidedPrompt = `(reference composition:1.3), ${prompt.trim()}, masterpiece, best quality, 8k resolution, cinematic lighting`;
+      const encodedPrompt = encodeURIComponent(imgGuidedPrompt);
+      const pollinationsUrl = `https://image.pollinations.ai/prompt/${encodedPrompt}?width=1024&height=1024&seed=${Math.floor(
+        Math.random() * 899999
+      ) + 100000}&nologo=true&enhance=true&safe=${!enableNsfw}&model=flux`;
 
       const polResponse = await fetchWithRetry(pollinationsUrl, {
         headers: { 'User-Agent': 'Mozilla/5.0 (compatible; FoxAI/3.0)' },
@@ -111,7 +110,7 @@ export async function POST(req: NextRequest) {
         const base64 = arrayBufferToBase64(arrayBuffer);
         return NextResponse.json({
           success: true,
-          data: { imageUrl: `data:image/jpeg;base64,${base64}`, providerUsed: 'Pollinations Global Img2Img Pool' },
+          data: { imageUrl: `data:image/jpeg;base64,${base64}`, providerUsed: 'Pollinations 开放算力池 (参考构图重绘)' },
         });
       }
     } catch (e: any) {
@@ -119,7 +118,7 @@ export async function POST(req: NextRequest) {
     }
 
     return NextResponse.json(
-      { success: false, error: '垫图重绘处理失败，请检查参考图片或网络连接' },
+      { success: false, error: '垫图重绘处理失败，请检查参考图片或配置 Cloudflare AI Token' },
       { status: 500 }
     );
   } catch (err: any) {

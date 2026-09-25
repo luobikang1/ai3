@@ -1,9 +1,6 @@
-'use client';
-
 import React from 'react';
-import { Image as ImageIcon, Sparkles, Layers, History, Settings, Wand2 } from 'lucide-react';
 
-export type TabType = 'txt2img' | 'img2img' | 'edit' | 'models' | 'history' | 'settings';
+export type TabType = 'txt2img' | 'img2img' | 'models' | 'history' | 'settings';
 
 interface MobileTabBarProps {
   activeTab: TabType;
@@ -11,37 +8,33 @@ interface MobileTabBarProps {
 }
 
 export const MobileTabBar: React.FC<MobileTabBarProps> = ({ activeTab, setActiveTab }) => {
-  const tabs = [
-    { id: 'txt2img' as TabType, label: '文生图', icon: Sparkles },
-    { id: 'img2img' as TabType, label: '图生图', icon: ImageIcon },
-    { id: 'edit' as TabType, label: 'AI修图', icon: Wand2 },
-    { id: 'models' as TabType, label: '模型库', icon: Layers },
-    { id: 'history' as TabType, label: '历史', icon: History },
-    { id: 'settings' as TabType, label: '设置', icon: Settings },
+  const tabs: { id: TabType; label: string; icon: string }[] = [
+    { id: 'txt2img', label: '文生图', icon: '🎨' },
+    { id: 'img2img', label: '图生图', icon: '🖼️' },
+    { id: 'models', label: '模型库', icon: '📚' },
+    { id: 'history', label: '历史', icon: '📜' },
+    { id: 'settings', label: '设置', icon: '⚙️' },
   ];
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 z-40 bg-white/90 dark:bg-gray-900/90 backdrop-blur-lg border-t border-gray-200 dark:border-gray-800 pb-safe">
-      <nav className="max-w-md mx-auto flex items-center justify-around h-16 px-2">
-        {tabs.map((tab) => {
-          const Icon = tab.icon;
-          const isActive = activeTab === tab.id;
-          return (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
-              className={`flex flex-col items-center justify-center flex-1 py-1 px-1 transition-all duration-200 min-h-[48px] ${
-                isActive
-                  ? 'text-blue-600 dark:text-blue-400 font-semibold scale-105'
-                  : 'text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
-              }`}
-            >
-              <Icon size={20} className={isActive ? 'stroke-[2.2]' : 'stroke-[1.8]'} />
-              <span className="text-[11px] mt-1 tracking-tight">{tab.label}</span>
-            </button>
-          );
-        })}
-      </nav>
+    <div className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/90 dark:bg-slate-900/90 backdrop-blur-lg border-t border-slate-200/80 dark:border-slate-800 px-2 py-1.5 flex items-center justify-around shadow-lg">
+      {tabs.map((tab) => {
+        const isActive = activeTab === tab.id;
+        return (
+          <button
+            key={tab.id}
+            onClick={() => setActiveTab(tab.id)}
+            className={`flex flex-col items-center justify-center py-1 px-3 rounded-xl transition ${
+              isActive
+                ? 'text-blue-600 dark:text-blue-400 font-black scale-105'
+                : 'text-slate-500 dark:text-slate-400 font-medium'
+            }`}
+          >
+            <span className="text-lg">{tab.icon}</span>
+            <span className="text-[10px] tracking-tight">{tab.label}</span>
+          </button>
+        );
+      })}
     </div>
   );
 };
