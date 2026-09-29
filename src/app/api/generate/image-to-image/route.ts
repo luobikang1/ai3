@@ -111,11 +111,13 @@ export async function POST(req: NextRequest) {
             }
           }
           const arrayBuffer = await cfRes.arrayBuffer();
-          const base64 = arrayBufferToBase64(arrayBuffer);
-          return NextResponse.json({
-            success: true,
-            data: { imageUrl: `data:image/png;base64,${base64}`, providerUsed: 'Cloudflare Workers AI Img2Img' },
-          });
+          if (arrayBuffer.byteLength > 1500) {
+            const base64 = arrayBufferToBase64(arrayBuffer);
+            return NextResponse.json({
+              success: true,
+              data: { imageUrl: `data:image/png;base64,${base64}`, providerUsed: 'Cloudflare Workers AI Img2Img' },
+            });
+          }
         }
       } catch (e: any) {
         // Fallback to high quality text-guided image generation
@@ -129,7 +131,7 @@ export async function POST(req: NextRequest) {
       const encodedNegative = encodeURIComponent(safeNegative);
       const pollinationsUrl = `https://image.pollinations.ai/prompt/${encodedPrompt}?width=1024&height=1024&seed=${Math.floor(
         Math.random() * 899999
-      ) + 100000}&nologo=true&model=flux&negative=${encodedNegative}`;
+      ) + 100000}&nologo=true&model=flux&negative=${encodedNegative}&enhance=true&quality=100`;
 
       const polResponse = await fetchWithRetry(pollinationsUrl, {
         headers: { 'User-Agent': 'Mozilla/5.0 (compatible; FoxAI/3.0)' },

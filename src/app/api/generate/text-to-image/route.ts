@@ -30,7 +30,6 @@ function mapResolutionToBucket(
   if (customWidth || customHeight) {
     const rawW = Math.min(Math.max(Number(customWidth || w) || 1024, 512), 1536);
     const rawH = Math.min(Math.max(Number(customHeight || h) || 1024, 512), 1536);
-    // Align to nearest multiple of 64 for optimal SDXL/FLUX compatibility
     const safeW = Math.round(rawW / 64) * 64;
     const safeH = Math.round(rawH / 64) * 64;
     return { width: safeW, height: safeH, aspectRatio: `${safeW}:${safeH}` };
@@ -48,7 +47,6 @@ function mapModelToPollinations(modelId: string, styleId?: string): string {
   const id = (modelId || '').trim();
   if (!id) return 'flux';
 
-  // Honor explicit Civitai or specialized preset models directly!
   if (id.startsWith('civitai:')) {
     return id;
   }
@@ -134,7 +132,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // 1. English Gatekeeper: Ensure prompt contains ZERO Chinese characters before calling AI image models
+    // 1. English Gatekeeper Check and Auto-Translation
     let workingPrompt = prompt.trim();
     if (/[\u4e00-\u9fa5]/.test(workingPrompt)) {
       workingPrompt = parseAndWeightPrompt(workingPrompt, styleStrength);
@@ -325,9 +323,11 @@ export async function POST(req: NextRequest) {
               }
             }
             const arrayBuffer = await cfResponse.arrayBuffer();
-            const base64 = arrayBufferToBase64(arrayBuffer);
-            const mime = contentType.includes('image/jpeg') ? 'image/jpeg' : 'image/png';
-            return { url: `data:${mime};base64,${base64}`, providerUsed: 'Cloudflare Workers AI 官方画质引擎' };
+            if (arrayBuffer.byteLength > 1500) {
+              const base64 = arrayBufferToBase64(arrayBuffer);
+              const mime = contentType.includes('image/jpeg') ? 'image/jpeg' : 'image/png';
+              return { url: `data:${mime};base64,${base64}`, providerUsed: 'Cloudflare Workers AI 官方画质引擎' };
+            }
           } else {
             attemptedErrors.push(await parseErrorResponse(cfResponse, 'Cloudflare AI 节点繁忙'));
           }
@@ -372,14 +372,14 @@ export async function POST(req: NextRequest) {
         }
       }
 
-      // 3. Pollinations High Quality Free Pool Failover
+      // 3. Pollinations High Quality Free Pool Failover with enhanced quality parameter
       try {
         const dynamicTimeout = Math.max(35000, Number(steps) * 1000);
         const polModel = mapModelToPollinations(model, styleId);
         const encodedPrompt = encodeURIComponent(prompt.trim());
         const encodedNegative = encodeURIComponent(negativePrompt.trim());
 
-        const pollinationsUrl = `https://image.pollinations.ai/prompt/${encodedPrompt}?nologo=true&seed=${currentSeed}&width=${resBucket.width}&height=${resBucket.height}&model=${polModel}&negative=${encodedNegative}`;
+        const pollinationsUrl = `https://image.pollinations.ai/prompt/${encodedPrompt}?nologo=true&seed=${currentSeed}&width=${resBucket.width}&height=${resBucket.height}&model=${polModel}&negative=${encodedNegative}&enhance=true&quality=100`;
 
         const polResponse = await fetchWithRetry(pollinationsUrl, {
           headers: { 'User-Agent': 'Mozilla/5.0 (compatible; FoxAI/3.0)' },
