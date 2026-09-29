@@ -1,4 +1,4 @@
-// WhiteFox AI Three Structured Prompt Synthesis Kernel (Midjourney v6 / FLUX.1 Standard)
+// WhiteFox AI Three Structured Prompt Synthesis Kernel (Midjourney v6 / FLUX.1 / SDXL Standard)
 const EXACT_PROMPT_DICT: Record<string, string> = {
   厚涂: 'impasto oil painting style, textured brushstrokes, rich layered pigments, fine canvas texture',
   赛璐璐: 'anime cel shading style, crisp clean anime line art, vibrant flat colors, Makoto Shinkai key visual',
@@ -40,14 +40,16 @@ const EXACT_PROMPT_DICT: Record<string, string> = {
   光线: 'dramatic lighting, rim light, golden hour glow',
   三维: '3d animated render, Unreal Engine 5, Octane render, subsurface scattering',
   Q版: 'chibi cute style, adorable character, rounded features',
+  人像: 'professional portrait photography, natural skin texture, sharp clear eyes',
+  壁纸: 'ultra-wide cinematic wallpaper, 8k resolution, stunning visual composition',
 };
 
 // Mainstream Categorized Quality & Lighting Boosters
 const DOMAIN_QUALITY_BOOSTERS: Record<string, string> = {
-  photo: 'raw photo, photorealistic, 8k uhd, 85mm f/1.8 lens, DSLR, natural skin texture, realistic studio lighting, well-lit, optimal exposure, sharp focus, volumetric shadows, ray tracing, 8k resolution',
-  anime: 'masterpiece anime visual, Makoto Shinkai aesthetic, vivid rich colors, crisp anime line art, flawless anime style, well-lit, cinematic lighting, 8k resolution',
-  art: 'masterpiece digital painting, artistic composition, rich color balance, well-lit, optimal exposure, highly detailed artwork, 8k resolution',
-  cg3d: '3d render, Unreal Engine 5, Octane render, 8k 3d asset, subsurface scattering, volumetric fog, path tracing, raytraced reflections, well-lit, 8k resolution',
+  photo: 'raw photo, photorealistic, 8k resolution, 85mm f/1.8 lens, DSLR, natural skin texture, realistic studio lighting, sharp focus, volumetric shadows',
+  anime: 'masterpiece anime visual, Makoto Shinkai aesthetic, vivid rich colors, crisp anime line art, cinematic lighting, 8k resolution',
+  art: 'masterpiece digital painting, artistic composition, rich color balance, well-lit, optimal exposure, highly detailed, 8k resolution',
+  cg3d: '3d render, Unreal Engine 5, Octane render, subsurface scattering, volumetric fog, raytraced reflections, well-lit, 8k resolution',
   ink: 'traditional Chinese ink wash painting, xuan paper texture, elegant poetic brushstrokes, splash ink accent, artistic lighting',
 };
 
@@ -62,29 +64,32 @@ export function parseAndWeightPrompt(prompt: string, styleStrength = 0.65): stri
     }
   });
 
-  // 2. Sanitize syntax (remove mismatched brackets/parentheses)
-  clean = clean.replace(/[\(\)\[\]]/g, ' ').replace(/\s+/g, ' ').trim();
+  // 2. Sanitize whitespace while preserving syntax like parentheses () and brackets [] for weighting
+  clean = clean.replace(/\s+/g, ' ').replace(/,\s*,/g, ',').trim();
 
   const lower = clean.toLowerCase();
 
   // 3. Detect dominant art domain and inject domain-tailored quality boosters
   let domainBooster = DOMAIN_QUALITY_BOOSTERS.art;
 
-  if (lower.includes('photo') || lower.includes('dslr') || lower.includes('portrait') || lower.includes('film') || lower.includes('realism')) {
+  if (lower.includes('photo') || lower.includes('dslr') || lower.includes('portrait') || lower.includes('film') || lower.includes('realism') || lower.includes('photorealistic')) {
     domainBooster = DOMAIN_QUALITY_BOOSTERS.photo;
-  } else if (lower.includes('anime') || lower.includes('cel shading') || lower.includes('manga') || lower.includes('ghibli')) {
+  } else if (lower.includes('anime') || lower.includes('cel shading') || lower.includes('manga') || lower.includes('ghibli') || lower.includes('animagine')) {
     domainBooster = DOMAIN_QUALITY_BOOSTERS.anime;
-  } else if (lower.includes('3d') || lower.includes('pixar') || lower.includes('unreal engine') || lower.includes('octane')) {
+  } else if (lower.includes('3d') || lower.includes('pixar') || lower.includes('unreal engine') || lower.includes('octane') || lower.includes('cg')) {
     domainBooster = DOMAIN_QUALITY_BOOSTERS.cg3d;
-  } else if (lower.includes('ink wash') || lower.includes('xuan paper') || lower.includes('chinese ink')) {
+  } else if (lower.includes('ink wash') || lower.includes('xuan paper') || lower.includes('chinese ink') || lower.includes('shanshui')) {
     domainBooster = DOMAIN_QUALITY_BOOSTERS.ink;
   }
 
-  // Ensure prompt has foundational lighting and exposure quality keywords
-  if (!lower.includes('masterpiece') && !lower.includes('photorealistic') && !lower.includes('8k')) {
-    clean = `${clean}, ${domainBooster}`;
-  } else if (!lower.includes('well-lit') && !lower.includes('exposure')) {
-    clean = `${clean}, well-lit, optimal exposure, 8k resolution, highly detailed, sharp crystal clear focus`;
+  // Ensure prompt has foundational quality keywords without duplicating
+  const hasQualityKeyword = lower.includes('photorealistic') || lower.includes('raw photo') || lower.includes('makoto shinkai') || lower.includes('unreal engine') || lower.includes('ink wash painting');
+  if (!hasQualityKeyword) {
+    if (!lower.includes('masterpiece') && !lower.includes('8k')) {
+      clean = `${clean}, ${domainBooster}`;
+    } else if (!lower.includes('well-lit') && !lower.includes('lighting') && !lower.includes('sharp focus')) {
+      clean = `${clean}, well-lit, optimal exposure, sharp crystal clear focus`;
+    }
   }
 
   return clean;
@@ -95,10 +100,13 @@ export function mergeNegativePrompts(userNegative?: string, defaultNegative?: st
 
   if (nsfwEnabled) {
     // When adult content generation is ON, keep negative prompt completely clean without censorship keywords
-    return custom || 'blurry, low quality, distorted, dark shadows, underexposed, bad anatomy, overexposed, pitch black background';
+    return custom || 'worst quality, low quality, blurry, distorted, underexposed, bad anatomy, overexposed, bad hands, missing fingers';
   }
 
-  const builtIn = (defaultNegative || 'blurry, low quality, distorted, dark shadows, underexposed, bad hands, bad face, deformed, extra fingers, mutated hands, poorly drawn face, poorly drawn hands, missing limbs, bad anatomy, watermark, text, low resolution, overexposed, pitch black background').trim();
+  const builtIn = (
+    defaultNegative ||
+    'worst quality, low quality, normal quality, blurry, distorted, jpeg artifacts, bad hands, bad face, deformed, extra fingers, mutated hands, poorly drawn face, poorly drawn hands, missing limbs, bad anatomy, watermark, text, signature, cropped, low resolution'
+  ).trim();
   const safetyFilter = ', explicit violence, gore, explicit nudity, nsfw';
 
   if (!custom) return `${builtIn}${safetyFilter}`;

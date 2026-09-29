@@ -237,7 +237,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const endpoint = `/api/generate/${type}`;
 
     let combinedPrompt = currentPrompt;
-    if (selectedStyle && selectedStyle.promptBoost) {
+    if (selectedStyle && selectedStyle.promptBoost && selectedStyle.id !== 'none') {
       combinedPrompt = `${combinedPrompt}, ${selectedStyle.promptBoost}`;
     }
 
