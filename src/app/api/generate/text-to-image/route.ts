@@ -25,7 +25,8 @@ function mapResolutionToBucket(
   w: number,
   h: number,
   customWidth?: number,
-  customHeight?: number
+  customHeight?: number,
+  aspectRatioStr?: string
 ): { width: number; height: number; aspectRatio: string } {
   if (customWidth || customHeight) {
     const rawW = Math.min(Math.max(Number(customWidth || w) || 1024, 512), 1536);
@@ -34,6 +35,12 @@ function mapResolutionToBucket(
     const safeH = Math.round(rawH / 64) * 64;
     return { width: safeW, height: safeH, aspectRatio: `${safeW}:${safeH}` };
   }
+
+  if (aspectRatioStr === '16:9') return { width: 1216, height: 832, aspectRatio: '16:9' };
+  if (aspectRatioStr === '9:16') return { width: 832, height: 1216, aspectRatio: '9:16' };
+  if (aspectRatioStr === '4:3') return { width: 1152, height: 864, aspectRatio: '4:3' };
+  if (aspectRatioStr === '3:4') return { width: 864, height: 1152, aspectRatio: '3:4' };
+  if (aspectRatioStr === '1:1') return { width: 1024, height: 1024, aspectRatio: '1:1' };
 
   const aspect = w / h;
   if (aspect >= 1.5) return { width: 1216, height: 832, aspectRatio: '16:9' };
@@ -107,6 +114,7 @@ export async function POST(req: NextRequest) {
       height = 1024,
       customWidth,
       customHeight,
+      aspectRatio,
       model = '@cf/stabilityai/stable-diffusion-xl-base-1.0',
       styleId,
       sampler,
@@ -179,7 +187,7 @@ export async function POST(req: NextRequest) {
     negativePrompt = mergeNegativePrompts(negativePrompt, DEFAULT_SETTINGS.defaultNegativePrompt, enableNsfw);
     const baseSeed = seed ? Number(seed) : Math.floor(Math.random() * 899999) + 100000;
 
-    const resBucket = mapResolutionToBucket(Number(width) || 1024, Number(height) || 1024, customWidth, customHeight);
+    const resBucket = mapResolutionToBucket(Number(width) || 1024, Number(height) || 1024, customWidth, customHeight, aspectRatio);
 
     // Cache Hash check
     const cacheHash = `${model}_${prompt.trim()}_${resBucket.width}_${resBucket.height}_${steps}_${guidance}_${baseSeed}`;
@@ -273,49 +281,7 @@ export async function POST(req: NextRequest) {
         }
       }
 
-      // 0. Cloudflare Pages Functions Native AI Binding (env.AI)
-      if (cfWorkersAI && typeof cfWorkersAI.run === 'function') {
-        try {
-          const cfModel = mapModelToCloudflare(model, styleId);
-          const isFastModel = cfModel.includes('lightning') || cfModel.includes('lcm') || cfModel.includes('turbo');
-          const maxCfSteps = isFastModel ? 8 : 20;
-          const safeCfSteps = Math.min(Math.max(Number(steps) || (isFastModel ? 4 : 20), 1), maxCfSteps);
-          const safeGuidance = getOptimalGuidanceScale(cfModel, guidance);
-
-          const cfPayload: any = {
-            prompt: prompt.trim(),
-            negative_prompt: negativePrompt,
-            width: resBucket.width,
-            height: resBucket.height,
-            num_steps: safeCfSteps,
-            guidance: safeGuidance,
-            seed: currentSeed,
-          };
-
-          const aiResult: any = await cfWorkersAI.run(cfModel, cfPayload);
-          if (aiResult) {
-            if (typeof aiResult === 'string') {
-              return { url: aiResult.startsWith('data:') ? aiResult : `data:image/png;base64,${aiResult}`, providerUsed: 'Cloudflare Pages Functions 原生 AI 资源集 (env.AI)' };
-            }
-            if (aiResult instanceof ArrayBuffer) {
-              const base64 = arrayBufferToBase64(aiResult);
-              return { url: `data:image/png;base64,${base64}`, providerUsed: 'Cloudflare Pages Functions 原生 AI 资源集 (env.AI)' };
-            }
-            if (aiResult instanceof Uint8Array) {
-              const base64 = arrayBufferToBase64(aiResult.buffer as ArrayBuffer);
-              return { url: `data:image/png;base64,${base64}`, providerUsed: 'Cloudflare Pages Functions 原生 AI 资源集 (env.AI)' };
-            }
-            if (aiResult.image) {
-              const img = aiResult.image.startsWith('data:') ? aiResult.image : `data:image/png;base64,${aiResult.image}`;
-              return { url: img, providerUsed: 'Cloudflare Pages Functions 原生 AI 资源集 (env.AI)' };
-            }
-          }
-        } catch (e: any) {
-          attemptedErrors.push(`Pages Functions env.AI 异常: ${e.message}`);
-        }
-      }
-
-      // 1. Server-Side Direct Cloudflare Workers AI Call
+      // 1. Server-Side Direct Cloudflare Workers AI Call (Priority 1: Explicit Bearer Token & Account ID)
       if (cfApiToken && cfAccountId) {
         try {
           const cfModel = mapModelToCloudflare(model, styleId);
@@ -357,20 +323,62 @@ export async function POST(req: NextRequest) {
                 const img = jsonResult.result.image.startsWith('data:')
                   ? jsonResult.result.image
                   : `data:image/png;base64,${jsonResult.result.image}`;
-                return { url: img, providerUsed: 'Cloudflare Workers AI 官方画质引擎' };
+                return { url: img, providerUsed: 'Cloudflare Workers AI 官方画质引擎 (Token)' };
               }
             }
             const arrayBuffer = await cfResponse.arrayBuffer();
             if (arrayBuffer.byteLength > 1500) {
               const base64 = arrayBufferToBase64(arrayBuffer);
               const mime = contentType.includes('image/jpeg') ? 'image/jpeg' : 'image/png';
-              return { url: `data:${mime};base64,${base64}`, providerUsed: 'Cloudflare Workers AI 官方画质引擎' };
+              return { url: `data:${mime};base64,${base64}`, providerUsed: 'Cloudflare Workers AI 官方画质引擎 (Token)' };
             }
           } else {
-            attemptedErrors.push(await parseErrorResponse(cfResponse, 'Cloudflare AI 节点繁忙'));
+            attemptedErrors.push(await parseErrorResponse(cfResponse, 'Cloudflare AI Token 节点繁忙'));
           }
         } catch (e: any) {
-          attemptedErrors.push(`Cloudflare Workers AI 抛出错误: ${e.message}`);
+          attemptedErrors.push(`Cloudflare Workers AI Token 抛出错误: ${e.message}`);
+        }
+      }
+
+      // 1.5 Cloudflare Pages Functions Native AI Binding (Priority 2: Built-in env.AI fallback)
+      if (cfWorkersAI && typeof cfWorkersAI.run === 'function') {
+        try {
+          const cfModel = mapModelToCloudflare(model, styleId);
+          const isFastModel = cfModel.includes('lightning') || cfModel.includes('lcm') || cfModel.includes('turbo');
+          const maxCfSteps = isFastModel ? 8 : 20;
+          const safeCfSteps = Math.min(Math.max(Number(steps) || (isFastModel ? 4 : 20), 1), maxCfSteps);
+          const safeGuidance = getOptimalGuidanceScale(cfModel, guidance);
+
+          const cfPayload: any = {
+            prompt: prompt.trim(),
+            negative_prompt: negativePrompt,
+            width: resBucket.width,
+            height: resBucket.height,
+            num_steps: safeCfSteps,
+            guidance: safeGuidance,
+            seed: currentSeed,
+          };
+
+          const aiResult: any = await cfWorkersAI.run(cfModel, cfPayload);
+          if (aiResult) {
+            if (typeof aiResult === 'string') {
+              return { url: aiResult.startsWith('data:') ? aiResult : `data:image/png;base64,${aiResult}`, providerUsed: 'Cloudflare Pages Functions 原生 AI 资源集 (env.AI)' };
+            }
+            if (aiResult instanceof ArrayBuffer) {
+              const base64 = arrayBufferToBase64(aiResult);
+              return { url: `data:image/png;base64,${base64}`, providerUsed: 'Cloudflare Pages Functions 原生 AI 资源集 (env.AI)' };
+            }
+            if (aiResult instanceof Uint8Array) {
+              const base64 = arrayBufferToBase64(aiResult.buffer as ArrayBuffer);
+              return { url: `data:image/png;base64,${base64}`, providerUsed: 'Cloudflare Pages Functions 原生 AI 资源集 (env.AI)' };
+            }
+            if (aiResult.image) {
+              const img = aiResult.image.startsWith('data:') ? aiResult.image : `data:image/png;base64,${aiResult.image}`;
+              return { url: img, providerUsed: 'Cloudflare Pages Functions 原生 AI 资源集 (env.AI)' };
+            }
+          }
+        } catch (e: any) {
+          attemptedErrors.push(`Pages Functions env.AI 异常: ${e.message}`);
         }
       }
 
@@ -417,7 +425,8 @@ export async function POST(req: NextRequest) {
         const encodedPrompt = encodeURIComponent(prompt.trim());
         const encodedNegative = encodeURIComponent(negativePrompt.trim());
 
-        const pollinationsUrl = `https://image.pollinations.ai/prompt/${encodedPrompt}?nologo=true&seed=${currentSeed}&width=${resBucket.width}&height=${resBucket.height}&model=${polModel}&negative=${encodedNegative}&enhance=true&quality=100`;
+        const nsfwParam = enableNsfw ? '&nsfw=true' : '';
+        const pollinationsUrl = `https://image.pollinations.ai/prompt/${encodedPrompt}?nologo=true&seed=${currentSeed}&width=${resBucket.width}&height=${resBucket.height}&model=${polModel}&negative=${encodedNegative}&enhance=true&quality=100${nsfwParam}`;
 
         const polResponse = await fetchWithRetry(pollinationsUrl, {
           headers: { 'User-Agent': 'Mozilla/5.0 (compatible; FoxAI/3.0)' },
