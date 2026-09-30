@@ -104,6 +104,7 @@ export interface UserSettings {
   defaultStyleStrength: number;
   defaultLoraWeight: number;
   defaultNegativePrompt: string;
+  layoutMode?: 'auto' | 'desktop' | 'mobile';
   darkMode: boolean;
   historyLimit: number;
   enableD1Sync?: boolean;

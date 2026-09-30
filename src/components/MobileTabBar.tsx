@@ -1,4 +1,5 @@
 import React from 'react';
+import { useApp } from '@/context/AppContext';
 
 export type TabType = 'txt2img' | 'ai' | 'models' | 'history' | 'settings';
 
@@ -8,6 +9,11 @@ interface MobileTabBarProps {
 }
 
 export const MobileTabBar: React.FC<MobileTabBarProps> = ({ activeTab, setActiveTab }) => {
+  const { layoutMode } = useApp();
+
+  if (layoutMode === 'desktop') return null;
+
+  const visibilityClass = layoutMode === 'mobile' ? 'flex' : 'flex md:hidden';
   const tabs: { id: TabType; label: string; icon: string }[] = [
     { id: 'txt2img', label: '文生图', icon: '🎨' },
     { id: 'ai', label: 'AI 助手', icon: '🤖' },
@@ -17,7 +23,7 @@ export const MobileTabBar: React.FC<MobileTabBarProps> = ({ activeTab, setActive
   ];
 
   return (
-    <div className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/90 dark:bg-slate-900/90 backdrop-blur-lg border-t border-slate-200/80 dark:border-slate-800 px-2 py-1.5 flex items-center justify-around shadow-lg">
+    <div className={`${visibilityClass} fixed bottom-0 left-0 right-0 z-40 bg-white/90 dark:bg-slate-900/90 backdrop-blur-lg border-t border-slate-200/80 dark:border-slate-800 px-2 py-1.5 items-center justify-around shadow-lg`}>
       {tabs.map((tab) => {
         const isActive = activeTab === tab.id;
         return (

@@ -18,7 +18,19 @@ export const Navbar: React.FC<NavbarProps> = ({
   activeTab: explicitActiveTab,
   setActiveTab: explicitSetActiveTab,
 }) => {
-  const { auth, logout, isDarkMode, toggleDarkMode } = useApp();
+  const { auth, logout, isDarkMode, toggleDarkMode, layoutMode, setLayoutMode } = useApp();
+
+  const cycleLayoutMode = () => {
+    if (layoutMode === 'auto') setLayoutMode('desktop');
+    else if (layoutMode === 'desktop') setLayoutMode('mobile');
+    else setLayoutMode('auto');
+  };
+
+  const getLayoutLabel = () => {
+    if (layoutMode === 'desktop') return '🖥️ 电脑视图';
+    if (layoutMode === 'mobile') return '📱 手机视图';
+    return '⚡ 自动响应';
+  };
 
   const activeTab = explicitActiveTab || currentTab || 'txt2img';
   const handleTabClick = (tab: TabType) => {
@@ -50,8 +62,16 @@ export const Navbar: React.FC<NavbarProps> = ({
           </span>
         </div>
 
-        {/* Desktop Navigation Tabs */}
-        <nav className="hidden md:flex items-center gap-1 bg-slate-100/80 dark:bg-slate-800/80 p-1 rounded-2xl border border-slate-200/50 dark:border-slate-700/50">
+        {/* Navigation Tabs (Controlled by layoutMode) */}
+        <nav
+          className={`${
+            layoutMode === 'desktop'
+              ? 'flex'
+              : layoutMode === 'mobile'
+              ? 'hidden'
+              : 'hidden md:flex'
+          } items-center gap-1 bg-slate-100/80 dark:bg-slate-800/80 p-1 rounded-2xl border border-slate-200/50 dark:border-slate-700/50`}
+        >
           {navItems.map((item) => (
             <button
               key={item.id}
@@ -70,6 +90,15 @@ export const Navbar: React.FC<NavbarProps> = ({
 
         {/* Right Actions */}
         <div className="flex items-center gap-2">
+          {/* 1-Click Layout Mode Toggle Button */}
+          <button
+            onClick={cycleLayoutMode}
+            className="px-2.5 py-1.5 rounded-xl bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-700 transition text-xs font-bold flex items-center gap-1 border border-slate-200 dark:border-slate-700"
+            title="一键切换电脑界面与手机界面"
+          >
+            {getLayoutLabel()}
+          </button>
+
           <button
             onClick={toggleDarkMode}
             className="p-2 rounded-xl text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition text-base"

@@ -33,6 +33,8 @@ interface AppContextType {
   logout: () => void;
   isDarkMode: boolean;
   toggleDarkMode: () => void;
+  layoutMode: 'auto' | 'desktop' | 'mobile';
+  setLayoutMode: (mode: 'auto' | 'desktop' | 'mobile') => void;
 
   models: AIModel[];
   selectedModel: AIModel;
@@ -85,6 +87,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [settings, setSettings] = useState<UserSettings>(DEFAULT_SETTINGS);
   const [auth, setAuth] = useState<AuthState>({ isLoggedIn: false, username: null, token: null });
   const [isDarkMode, setIsDarkMode] = useState(false);
+  const [layoutMode, setLocalLayoutMode] = useState<'auto' | 'desktop' | 'mobile'>('auto');
 
   const [models, setModels] = useState<AIModel[]>(PRESET_MODELS);
   const [selectedModel, setSelectedModel] = useState<AIModel>(PRESET_MODELS[0]);
@@ -114,6 +117,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const loadedSettings = getStoredSettings();
     setSettings(loadedSettings);
     setIsDarkMode(loadedSettings.darkMode);
+    if (loadedSettings.layoutMode) {
+      setLocalLayoutMode(loadedSettings.layoutMode);
+    }
 
     if (loadedSettings.darkMode) {
       document.documentElement.classList.add('dark');
@@ -203,6 +209,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     updateSettings({ darkMode: nextMode });
   };
 
+  const setLayoutMode = (mode: 'auto' | 'desktop' | 'mobile') => {
+    setLocalLayoutMode(mode);
+    updateSettings({ layoutMode: mode });
+  };
+
   const login = (token: string, username: string) => {
     setStoredAuthToken(token);
     setStoredUsername(username);
@@ -261,6 +272,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       enableNsfw: settings.enableNsfw ?? true,
       siliconApiKey: settings.siliconApiKey,
       openaiApiKey: settings.openaiApiKey,
+      stabilityApiKey: settings.stabilityApiKey,
+      falApiKey: settings.falApiKey,
+      hfApiKey: settings.hfApiKey,
+      customEndpoint: settings.customEndpoint,
       cfApiToken: settings.cfApiToken,
       cfAccountId: settings.cfAccountId,
       ...extraParams,
@@ -377,6 +392,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         logout,
         isDarkMode,
         toggleDarkMode,
+        layoutMode,
+        setLayoutMode,
         models,
         selectedModel,
         setSelectedModel,

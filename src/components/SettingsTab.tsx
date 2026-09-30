@@ -3,7 +3,7 @@ import { useApp } from '@/context/AppContext';
 import { COMPUTE_ENGINES } from '@/lib/constants';
 
 export const SettingsTab: React.FC = () => {
-  const { settings, updateSettings, showToast, isDarkMode, toggleDarkMode, auth } = useApp();
+  const { settings, updateSettings, showToast, isDarkMode, toggleDarkMode, auth, layoutMode, setLayoutMode } = useApp();
 
   const isAdmin = auth.username === 'admin' || auth.username === (process.env.ADMIN_USERNAME || 'admin');
 
@@ -13,6 +13,9 @@ export const SettingsTab: React.FC = () => {
   const [siliconApiKey, setSiliconApiKey] = useState(settings.siliconApiKey || '');
   const [openaiApiKey, setOpenaiApiKey] = useState(settings.openaiApiKey || '');
   const [stabilityApiKey, setStabilityApiKey] = useState(settings.stabilityApiKey || '');
+  const [falApiKey, setFalApiKey] = useState(settings.falApiKey || '');
+  const [hfApiKey, setHfApiKey] = useState(settings.hfApiKey || '');
+  const [customEndpoint, setCustomEndpoint] = useState(settings.customEndpoint || '');
   const [customChatApiKey, setCustomChatApiKey] = useState(settings.customChatApiKey || '');
   const [enableNsfw, setEnableNsfw] = useState(settings.enableNsfw ?? true);
 
@@ -124,6 +127,23 @@ export const SettingsTab: React.FC = () => {
     }
   };
 
+  const handleSaveApiKeys = () => {
+    updateSettings({
+      cfApiToken: cfApiToken.trim(),
+      cfAccountId: cfAccountId.trim(),
+      siliconApiKey: siliconApiKey.trim(),
+      openaiApiKey: openaiApiKey.trim(),
+      stabilityApiKey: stabilityApiKey.trim(),
+      falApiKey: falApiKey.trim(),
+      hfApiKey: hfApiKey.trim(),
+      customEndpoint: customEndpoint.trim(),
+      customChatApiKey: customChatApiKey.trim(),
+    });
+    showToast('⚡ 全部 API 算力配置已一键保存生效！', 'success');
+    checkCloudflareAIConnection();
+    checkChatKeyConnection();
+  };
+
   const handleSave = () => {
     updateSettings({
       computeEngine,
@@ -132,10 +152,13 @@ export const SettingsTab: React.FC = () => {
       siliconApiKey: siliconApiKey.trim(),
       openaiApiKey: openaiApiKey.trim(),
       stabilityApiKey: stabilityApiKey.trim(),
+      falApiKey: falApiKey.trim(),
+      hfApiKey: hfApiKey.trim(),
+      customEndpoint: customEndpoint.trim(),
       customChatApiKey: customChatApiKey.trim(),
       enableNsfw,
     });
-    showToast('全局设置已成功保存！', 'success');
+    showToast('全局设置及算力配置已成功保存！', 'success');
     checkCloudflareAIConnection();
     checkChatKeyConnection();
   };
@@ -364,16 +387,24 @@ export const SettingsTab: React.FC = () => {
           ))}
         </div>
 
-        {/* Other Provider API Keys */}
+        {/* Other Provider API Keys & One-Click Save API Button */}
         <div className="pt-3 border-t border-slate-100 dark:border-slate-800 space-y-3">
-          <span className="text-[11px] font-bold text-slate-400 block uppercase">
-            其他外接算力 Key 配置
-          </span>
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-bold text-slate-400 block uppercase">
+              🔑 外部算力 Key 与自定义 API 节点配置
+            </span>
+            <button
+              onClick={handleSaveApiKeys}
+              className="px-3 py-1 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs rounded-xl shadow transition flex items-center gap-1"
+            >
+              <span>💾 一键保存 API 配置</span>
+            </button>
+          </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <div>
               <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1">
-                SiliconFlow Key
+                SiliconFlow 硅基流动 Key
               </label>
               <input
                 type="password"
@@ -394,6 +425,58 @@ export const SettingsTab: React.FC = () => {
                 value={openaiApiKey}
                 onChange={(e) => setOpenaiApiKey(e.target.value)}
                 className="w-full px-3 py-1.5 rounded-xl text-xs bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800"
+              />
+            </div>
+
+            <div>
+              <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1">
+                Stability AI Key
+              </label>
+              <input
+                type="password"
+                placeholder="sk-..."
+                value={stabilityApiKey}
+                onChange={(e) => setStabilityApiKey(e.target.value)}
+                className="w-full px-3 py-1.5 rounded-xl text-xs bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800"
+              />
+            </div>
+
+            <div>
+              <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1">
+                Fal.ai API Key
+              </label>
+              <input
+                type="password"
+                placeholder="fal-..."
+                value={falApiKey}
+                onChange={(e) => setFalApiKey(e.target.value)}
+                className="w-full px-3 py-1.5 rounded-xl text-xs bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800"
+              />
+            </div>
+
+            <div>
+              <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1">
+                HuggingFace Token
+              </label>
+              <input
+                type="password"
+                placeholder="hf_..."
+                value={hfApiKey}
+                onChange={(e) => setHfApiKey(e.target.value)}
+                className="w-full px-3 py-1.5 rounded-xl text-xs bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800"
+              />
+            </div>
+
+            <div>
+              <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1">
+                自定义外部 API 节点 URL
+              </label>
+              <input
+                type="text"
+                placeholder="https://api.yourdomain.com/v1/image/generations"
+                value={customEndpoint}
+                onChange={(e) => setCustomEndpoint(e.target.value)}
+                className="w-full px-3 py-1.5 rounded-xl text-xs bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 font-mono"
               />
             </div>
           </div>
@@ -427,6 +510,54 @@ export const SettingsTab: React.FC = () => {
           />
           <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer dark:bg-slate-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
         </label>
+      </div>
+
+      {/* Layout Mode Switcher */}
+      <div className="bg-white dark:bg-slate-900 rounded-2xl p-5 border border-slate-200 dark:border-slate-800 shadow-sm flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <span className="text-xl">📱</span>
+          <div>
+            <div className="text-xs font-black text-slate-800 dark:text-slate-100">
+              界面布局视图切换
+            </div>
+            <div className="text-[11px] text-slate-400">
+              一键在电脑版全面板与手机端底栏导航布局间无缝切换
+            </div>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-1.5 bg-slate-100 dark:bg-slate-800 p-1 rounded-xl">
+          <button
+            onClick={() => setLayoutMode('auto')}
+            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition ${
+              layoutMode === 'auto'
+                ? 'bg-blue-600 text-white shadow-sm'
+                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+            }`}
+          >
+            ⚡ 自动响应
+          </button>
+          <button
+            onClick={() => setLayoutMode('desktop')}
+            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition ${
+              layoutMode === 'desktop'
+                ? 'bg-blue-600 text-white shadow-sm'
+                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+            }`}
+          >
+            🖥️ 电脑视图
+          </button>
+          <button
+            onClick={() => setLayoutMode('mobile')}
+            className={`px-3 py-1.5 rounded-lg text-xs font-bold transition ${
+              layoutMode === 'mobile'
+                ? 'bg-blue-600 text-white shadow-sm'
+                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+            }`}
+          >
+            📱 手机视图
+          </button>
+        </div>
       </div>
 
       {/* System Mode Switch */}
