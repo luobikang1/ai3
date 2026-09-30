@@ -210,10 +210,6 @@ export async function POST(req: NextRequest) {
     const cfAccountId = clientCfAccount || cfEnv.CLOUDFLARE_ACCOUNT_ID || process.env.CLOUDFLARE_ACCOUNT_ID;
     const siliconApiKey = clientSiliconKey || cfEnv.SILICONFLOW_API_KEY || process.env.SILICONFLOW_API_KEY;
     const openaiApiKey = clientOpenaiKey || cfEnv.OPENAI_API_KEY || process.env.OPENAI_API_KEY;
-    const stabilityApiKey = clientStabilityKey || process.env.STABILITY_API_KEY;
-    const falApiKey = clientFalKey || process.env.FAL_API_KEY;
-    const hfApiKey = clientHfKey || process.env.HF_API_KEY;
-    const customEndpoint = clientCustomEndpoint || process.env.CUSTOM_SD_ENDPOINT;
     const cfWorkersAI = cfEnv.AI;
 
     const count = Math.min(Math.max(Number(batchCount) || 1, 1), 4);
@@ -244,36 +240,6 @@ export async function POST(req: NextRequest) {
             const oaiJson = await oaiRes.json();
             if (oaiJson.data && oaiJson.data[0]?.url) {
               return { url: oaiJson.data[0].url, providerUsed: 'OpenAI DALL-E 3 官方引擎' };
-            }
-          }
-        } catch {
-          // Fallback
-        }
-      }
-
-      // 2.5 Custom Endpoint Failover if configured
-      if (customEndpoint) {
-        try {
-          const customRes = await fetchWithRetry(customEndpoint, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              prompt: prompt.trim(),
-              negative_prompt: negativePrompt,
-              width: resBucket.width,
-              height: resBucket.height,
-              seed: currentSeed,
-            }),
-            timeoutMs: 35000,
-            maxRetries: 2,
-          });
-          if (customRes.ok) {
-            const customJson = await customRes.json();
-            const customUrl = customJson.imageUrl || customJson.url || (customJson.images && customJson.images[0]?.url) || (customJson.data && customJson.data[0]?.url);
-            if (customUrl) {
-              return { url: customUrl, providerUsed: '自定义外部 API 算力节点' };
             }
           }
         } catch {

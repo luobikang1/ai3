@@ -13,9 +13,6 @@ export const SettingsTab: React.FC = () => {
   const [siliconApiKey, setSiliconApiKey] = useState(settings.siliconApiKey || '');
   const [openaiApiKey, setOpenaiApiKey] = useState(settings.openaiApiKey || '');
   const [stabilityApiKey, setStabilityApiKey] = useState(settings.stabilityApiKey || '');
-  const [falApiKey, setFalApiKey] = useState(settings.falApiKey || '');
-  const [hfApiKey, setHfApiKey] = useState(settings.hfApiKey || '');
-  const [customEndpoint, setCustomEndpoint] = useState(settings.customEndpoint || '');
   const [customChatApiKey, setCustomChatApiKey] = useState(settings.customChatApiKey || '');
   const [enableNsfw, setEnableNsfw] = useState(settings.enableNsfw ?? true);
 
@@ -127,23 +124,6 @@ export const SettingsTab: React.FC = () => {
     }
   };
 
-  const handleSaveApiKeys = () => {
-    updateSettings({
-      cfApiToken: cfApiToken.trim(),
-      cfAccountId: cfAccountId.trim(),
-      siliconApiKey: siliconApiKey.trim(),
-      openaiApiKey: openaiApiKey.trim(),
-      stabilityApiKey: stabilityApiKey.trim(),
-      falApiKey: falApiKey.trim(),
-      hfApiKey: hfApiKey.trim(),
-      customEndpoint: customEndpoint.trim(),
-      customChatApiKey: customChatApiKey.trim(),
-    });
-    showToast('⚡ 全部 API 算力配置已一键保存生效！', 'success');
-    checkCloudflareAIConnection();
-    checkChatKeyConnection();
-  };
-
   const handleSave = () => {
     updateSettings({
       computeEngine,
@@ -152,13 +132,10 @@ export const SettingsTab: React.FC = () => {
       siliconApiKey: siliconApiKey.trim(),
       openaiApiKey: openaiApiKey.trim(),
       stabilityApiKey: stabilityApiKey.trim(),
-      falApiKey: falApiKey.trim(),
-      hfApiKey: hfApiKey.trim(),
-      customEndpoint: customEndpoint.trim(),
       customChatApiKey: customChatApiKey.trim(),
       enableNsfw,
     });
-    showToast('全局设置及算力配置已成功保存！', 'success');
+    showToast('全局设置已成功保存！', 'success');
     checkCloudflareAIConnection();
     checkChatKeyConnection();
   };
@@ -357,19 +334,11 @@ export const SettingsTab: React.FC = () => {
           ))}
         </div>
 
-        {/* Other Provider API Keys & One-Click Save API Button */}
+        {/* Other Provider API Keys */}
         <div className="pt-3 border-t border-slate-100 dark:border-slate-800 space-y-3">
-          <div className="flex items-center justify-between">
-            <span className="text-[11px] font-bold text-slate-400 block uppercase">
-              🔑 外部算力 Key 与自定义 API 节点配置
-            </span>
-            <button
-              onClick={handleSaveApiKeys}
-              className="px-3 py-1 bg-emerald-600 hover:bg-emerald-700 text-white font-extrabold text-xs rounded-xl shadow transition flex items-center gap-1"
-            >
-              <span>💾 一键保存 API 配置</span>
-            </button>
-          </div>
+          <span className="text-[11px] font-bold text-slate-400 block uppercase">
+            其他外接算力 Key 配置
+          </span>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
             <div>
@@ -400,7 +369,7 @@ export const SettingsTab: React.FC = () => {
 
             <div>
               <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1">
-                SiliconFlow 硅基流动 Key
+                SiliconFlow Key
               </label>
               <input
                 type="password"
@@ -421,58 +390,6 @@ export const SettingsTab: React.FC = () => {
                 value={openaiApiKey}
                 onChange={(e) => setOpenaiApiKey(e.target.value)}
                 className="w-full px-3 py-1.5 rounded-xl text-xs bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800"
-              />
-            </div>
-
-            <div>
-              <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1">
-                Stability AI Key
-              </label>
-              <input
-                type="password"
-                placeholder="sk-..."
-                value={stabilityApiKey}
-                onChange={(e) => setStabilityApiKey(e.target.value)}
-                className="w-full px-3 py-1.5 rounded-xl text-xs bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800"
-              />
-            </div>
-
-            <div>
-              <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1">
-                Fal.ai API Key
-              </label>
-              <input
-                type="password"
-                placeholder="fal-..."
-                value={falApiKey}
-                onChange={(e) => setFalApiKey(e.target.value)}
-                className="w-full px-3 py-1.5 rounded-xl text-xs bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800"
-              />
-            </div>
-
-            <div>
-              <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1">
-                HuggingFace Token
-              </label>
-              <input
-                type="password"
-                placeholder="hf_..."
-                value={hfApiKey}
-                onChange={(e) => setHfApiKey(e.target.value)}
-                className="w-full px-3 py-1.5 rounded-xl text-xs bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800"
-              />
-            </div>
-
-            <div>
-              <label className="block text-[11px] font-bold text-slate-700 dark:text-slate-300 mb-1">
-                自定义外部 API 节点 URL
-              </label>
-              <input
-                type="text"
-                placeholder="https://api.yourdomain.com/v1/image/generations"
-                value={customEndpoint}
-                onChange={(e) => setCustomEndpoint(e.target.value)}
-                className="w-full px-3 py-1.5 rounded-xl text-xs bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 font-mono"
               />
             </div>
           </div>
