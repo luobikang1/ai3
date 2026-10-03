@@ -209,6 +209,10 @@ export async function POST(req: NextRequest) {
       // 0. OpenAI DALL-E 3 Priority Call if explicitly requested and key available
       if (openaiApiKey && (model === 'dall-e-3' || model.includes('dall-e'))) {
         try {
+          let oaiSize = '1024x1024';
+          if (resBucket.width > resBucket.height) oaiSize = '1792x1024';
+          else if (resBucket.height > resBucket.width) oaiSize = '1024x1792';
+
           const oaiRes = await fetchWithRetry('https://api.openai.com/v1/images/generations', {
             method: 'POST',
             headers: {
@@ -219,7 +223,7 @@ export async function POST(req: NextRequest) {
               model: 'dall-e-3',
               prompt: prompt.trim(),
               n: 1,
-              size: `${resBucket.width}x${resBucket.height}`,
+              size: oaiSize,
             }),
             timeoutMs: 45000,
             maxRetries: 2,
