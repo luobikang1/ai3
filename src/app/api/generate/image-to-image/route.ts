@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { fetchWithRetry, parseErrorResponse } from '@/lib/fetchWithRetry';
-import { parseAndWeightPrompt } from '@/lib/promptPreprocessor';
+import { parseAndWeightPrompt, mergeNegativePrompts } from '@/lib/promptPreprocessor';
+import { DEFAULT_SETTINGS } from '@/lib/constants';
 
 export const runtime = 'edge';
 
@@ -19,6 +20,7 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     let {
       prompt = 'cyberpunk white fox, highly detailed',
+      negativePrompt,
       inputImage,
       strength = 0.65,
       model = 'flux',
@@ -59,6 +61,7 @@ export async function POST(req: NextRequest) {
 
     const cfApiToken = clientCfToken || process.env.CLOUDFLARE_API_TOKEN;
     const cfAccountId = clientCfAccount || process.env.CLOUDFLARE_ACCOUNT_ID;
+    const safeNegative = mergeNegativePrompts(negativePrompt, DEFAULT_SETTINGS.defaultNegativePrompt, enableNsfw);
 
     // 1. CLOUDFLARE WORKERS AI IMG2IMG (Supports direct binary array payload safely)
     if (cfApiToken && cfAccountId) {
@@ -84,6 +87,7 @@ export async function POST(req: NextRequest) {
           },
           body: JSON.stringify({
             prompt: cleanPrompt,
+            negative_prompt: safeNegative,
             image: Array.from(bytes),
             strength: Number(strength) || 0.65,
             num_steps: safeNumSteps,
@@ -107,11 +111,13 @@ export async function POST(req: NextRequest) {
             }
           }
           const arrayBuffer = await cfRes.arrayBuffer();
-          const base64 = arrayBufferToBase64(arrayBuffer);
-          return NextResponse.json({
-            success: true,
-            data: { imageUrl: `data:image/png;base64,${base64}`, providerUsed: 'Cloudflare Workers AI Img2Img' },
-          });
+          if (arrayBuffer.byteLength > 1500) {
+            const base64 = arrayBufferToBase64(arrayBuffer);
+            return NextResponse.json({
+              success: true,
+              data: { imageUrl: `data:image/png;base64,${base64}`, providerUsed: 'Cloudflare Workers AI Img2Img' },
+            });
+          }
         }
       } catch (e: any) {
         // Fallback to high quality text-guided image generation
@@ -121,11 +127,11 @@ export async function POST(req: NextRequest) {
     // 2. HIGH-FIDELITY FREE ENGINE FALLBACK FOR IMG2IMG
     try {
       const enhancedClean = parseAndWeightPrompt(cleanPrompt, Number(strength) || 0.65);
-      const imgGuidedPrompt = `(reference composition:1.3), ${enhancedClean}`;
-      const encodedPrompt = encodeURIComponent(imgGuidedPrompt);
+      const encodedPrompt = encodeURIComponent(`masterpiece, ${enhancedClean}`);
+      const encodedNegative = encodeURIComponent(safeNegative);
       const pollinationsUrl = `https://image.pollinations.ai/prompt/${encodedPrompt}?width=1024&height=1024&seed=${Math.floor(
         Math.random() * 899999
-      ) + 100000}&nologo=true&enhance=true&safe=${!enableNsfw}&model=flux`;
+      ) + 100000}&nologo=true&model=flux&negative=${encodedNegative}&enhance=true&quality=100`;
 
       const polResponse = await fetchWithRetry(pollinationsUrl, {
         headers: { 'User-Agent': 'Mozilla/5.0 (compatible; FoxAI/3.0)' },
