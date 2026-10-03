@@ -21,52 +21,37 @@ function arrayBufferToBase64(buffer: ArrayBuffer): string {
   return btoa(binary);
 }
 
-function mapResolutionToBucket(
-  w: number,
-  h: number,
-  customWidth?: number,
-  customHeight?: number
-): { width: number; height: number; aspectRatio: string } {
-  if (customWidth || customHeight) {
-    const rawW = Math.min(Math.max(Number(customWidth || w) || 1024, 512), 1536);
-    const rawH = Math.min(Math.max(Number(customHeight || h) || 1024, 512), 1536);
-    const safeW = Math.round(rawW / 64) * 64;
-    const safeH = Math.round(rawH / 64) * 64;
-    return { width: safeW, height: safeH, aspectRatio: `${safeW}:${safeH}` };
-  }
-
+function mapResolutionToBucket(w: number, h: number): { width: number; height: number; aspectRatio: string } {
   const aspect = w / h;
-  if (aspect >= 1.5) return { width: 1216, height: 832, aspectRatio: '16:9' };
-  if (aspect <= 0.65) return { width: 832, height: 1216, aspectRatio: '9:16' };
-  if (aspect >= 1.2) return { width: 1152, height: 864, aspectRatio: '4:3' };
-  if (aspect <= 0.8) return { width: 864, height: 1152, aspectRatio: '3:4' };
+  if (aspect >= 1.5) return { width: 1280, height: 720, aspectRatio: '16:9' };
+  if (aspect <= 0.65) return { width: 720, height: 1280, aspectRatio: '9:16' };
+  if (aspect >= 1.2) return { width: 1024, height: 768, aspectRatio: '4:3' };
+  if (aspect <= 0.8) return { width: 768, height: 1024, aspectRatio: '3:4' };
   return { width: 1024, height: 1024, aspectRatio: '1:1' };
 }
 
 function mapModelToPollinations(modelId: string, styleId?: string): string {
-  const id = (modelId || '').trim();
-  if (!id) return 'flux';
-
-  if (id.startsWith('civitai:')) {
-    return id;
-  }
-
-  const lower = id.toLowerCase();
-  if (lower === 'flux' || lower.startsWith('flux-')) {
-    if (lower === 'flux-realism') return 'flux-realism';
-    if (lower === 'flux-anime') return 'flux-anime';
-    if (lower === 'flux-3d') return 'flux-3d';
-
+  if (styleId) {
     if (styleId === 'photorealistic' || styleId === 'vintage_film') return 'flux-realism';
     if (styleId === 'anime_v2' || styleId === 'ghibli_magic' || styleId === 'pixel_retro') return 'flux-anime';
     if (styleId === 'unreal_3d') return 'flux-3d';
-
-    return 'flux';
   }
 
-  if (lower === 'turbo' || lower.includes('turbo') || lower.includes('lightning')) return 'turbo';
+  if (!modelId) return 'flux';
+  const id = modelId.toLowerCase();
 
-  return id;
+  if (id === 'flux' || id.startsWith('flux-')) {
+    if (id === 'flux-realism') return 'flux-realism';
+    if (id === 'flux-anime') return 'flux-anime';
+    if (id === 'flux-3d') return 'flux-3d';
+    return 'flux';
+  }
+  if (id === 'turbo' || id.includes('turbo') || id.includes('lightning')) return 'turbo';
+  if (id.includes('anime') || id.includes('animagine') || id.includes('ghibli') || id.includes('anything')) return 'flux-anime';
+  if (id.includes('realistic') || id.includes('photorealistic') || id.includes('portrait')) return 'flux-realism';
+  if (id.includes('3d') || id.includes('pixar')) return 'flux-3d';
+
+  return 'flux';
 }
 
 function mapModelToCloudflare(modelId: string, styleId?: string): string {
@@ -79,21 +64,6 @@ function mapModelToCloudflare(modelId: string, styleId?: string): string {
     return '@cf/lykon/dreamshaper-8-lcm';
   }
   return '@cf/stabilityai/stable-diffusion-xl-base-1.0';
-}
-
-function getOptimalGuidanceScale(modelId: string, requestedGuidance?: number): number {
-  const val = Number(requestedGuidance) || 5.0;
-  const lower = (modelId || '').toLowerCase();
-
-  if (lower.includes('lightning') || lower.includes('turbo') || lower.includes('lcm') || lower.includes('schnell')) {
-    return Math.min(Math.max(val, 1.0), 2.5);
-  }
-
-  if (lower.includes('flux')) {
-    return Math.min(Math.max(val, 2.5), 4.5);
-  }
-
-  return Math.min(Math.max(val, 3.5), 7.5);
 }
 
 export async function POST(req: NextRequest) {
@@ -111,7 +81,7 @@ export async function POST(req: NextRequest) {
       styleId,
       sampler,
       steps = 25,
-      guidance = 5.0,
+      guidance = 7.0,
       styleStrength = 0.65,
       seed,
       batchCount = 1,
@@ -132,11 +102,13 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // 1. English Gatekeeper Check and Auto-Translation
+    // 1. English Gatekeeper (英文闸门): Ensure prompt contains ZERO Chinese characters before calling AI image models
     let workingPrompt = prompt.trim();
     if (/[\u4e00-\u9fa5]/.test(workingPrompt)) {
+      // First run through dictionary preprocessor for art style terms (厚涂, 赛璐璐, 景深, etc.)
       workingPrompt = parseAndWeightPrompt(workingPrompt, styleStrength);
 
+      // If Chinese characters remain, auto-translate via Google GTX
       if (/[\u4e00-\u9fa5]/.test(workingPrompt)) {
         try {
           const gtxUrl = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=en&dt=t&q=${encodeURIComponent(workingPrompt)}`;
@@ -158,6 +130,7 @@ export async function POST(req: NextRequest) {
         }
       }
 
+      // Strict English Gatekeeper Check
       if (/[\u4e00-\u9fa5]/.test(workingPrompt)) {
         return NextResponse.json(
           { success: false, error: '提示词中包含无法翻译的中文词汇，请先进行一键智能翻译后再生图' },
@@ -175,7 +148,9 @@ export async function POST(req: NextRequest) {
     negativePrompt = mergeNegativePrompts(negativePrompt, DEFAULT_SETTINGS.defaultNegativePrompt, enableNsfw);
     const baseSeed = seed ? Number(seed) : Math.floor(Math.random() * 899999) + 100000;
 
-    const resBucket = mapResolutionToBucket(Number(width) || 1024, Number(height) || 1024, customWidth, customHeight);
+    const finalWidth = customWidth ? Number(customWidth) : Number(width) || 1024;
+    const finalHeight = customHeight ? Number(customHeight) : Number(height) || 1024;
+    const resBucket = mapResolutionToBucket(finalWidth, finalHeight);
 
     // Cache Hash check
     const cacheHash = `${model}_${prompt.trim()}_${resBucket.width}_${resBucket.height}_${steps}_${guidance}_${baseSeed}`;
@@ -192,7 +167,7 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    // Server-Side Credentials
+    // Server-Side Credentials (NEVER exposed to frontend)
     const cfEnv = getCloudflareEnv();
     const cfApiToken = clientCfToken || cfEnv.CLOUDFLARE_API_TOKEN || process.env.CLOUDFLARE_API_TOKEN;
     const cfAccountId = clientCfAccount || cfEnv.CLOUDFLARE_ACCOUNT_ID || process.env.CLOUDFLARE_ACCOUNT_ID;
@@ -209,10 +184,6 @@ export async function POST(req: NextRequest) {
       // 0. OpenAI DALL-E 3 Priority Call if explicitly requested and key available
       if (openaiApiKey && (model === 'dall-e-3' || model.includes('dall-e'))) {
         try {
-          let oaiSize = '1024x1024';
-          if (resBucket.width > resBucket.height) oaiSize = '1792x1024';
-          else if (resBucket.height > resBucket.width) oaiSize = '1024x1792';
-
           const oaiRes = await fetchWithRetry('https://api.openai.com/v1/images/generations', {
             method: 'POST',
             headers: {
@@ -223,7 +194,7 @@ export async function POST(req: NextRequest) {
               model: 'dall-e-3',
               prompt: prompt.trim(),
               n: 1,
-              size: oaiSize,
+              size: '1024x1024',
             }),
             timeoutMs: 45000,
             maxRetries: 2,
@@ -246,7 +217,6 @@ export async function POST(req: NextRequest) {
           const isFastModel = cfModel.includes('lightning') || cfModel.includes('lcm') || cfModel.includes('turbo');
           const maxCfSteps = isFastModel ? 8 : 20;
           const safeCfSteps = Math.min(Math.max(Number(steps) || (isFastModel ? 4 : 20), 1), maxCfSteps);
-          const safeGuidance = getOptimalGuidanceScale(cfModel, guidance);
 
           const cfPayload: any = {
             prompt: prompt.trim(),
@@ -254,7 +224,7 @@ export async function POST(req: NextRequest) {
             width: resBucket.width,
             height: resBucket.height,
             num_steps: safeCfSteps,
-            guidance: safeGuidance,
+            guidance: Number(guidance) || 7.5,
             seed: currentSeed,
           };
 
@@ -284,13 +254,12 @@ export async function POST(req: NextRequest) {
       // 1. Server-Side Direct Cloudflare Workers AI Call
       if (cfApiToken && cfAccountId) {
         try {
-          const cfModel = mapModelToCloudflare(model, styleId);
+          const cfModel = mapModelToCloudflare(model);
           const cfEndpoint = `https://api.cloudflare.com/client/v4/accounts/${cfAccountId}/ai/run/${cfModel}`;
 
           const isFastModel = cfModel.includes('lightning') || cfModel.includes('lcm') || cfModel.includes('turbo');
           const maxCfSteps = isFastModel ? 8 : 20;
           const safeCfSteps = Math.min(Math.max(Number(steps) || (isFastModel ? 4 : 20), 1), maxCfSteps);
-          const safeGuidance = getOptimalGuidanceScale(cfModel, guidance);
 
           const cfPayload: any = {
             prompt: prompt.trim(),
@@ -298,7 +267,7 @@ export async function POST(req: NextRequest) {
             width: resBucket.width,
             height: resBucket.height,
             num_steps: safeCfSteps,
-            guidance: safeGuidance,
+            guidance: Number(guidance) || 7.5,
             seed: currentSeed,
           };
 
@@ -327,11 +296,9 @@ export async function POST(req: NextRequest) {
               }
             }
             const arrayBuffer = await cfResponse.arrayBuffer();
-            if (arrayBuffer.byteLength > 1500) {
-              const base64 = arrayBufferToBase64(arrayBuffer);
-              const mime = contentType.includes('image/jpeg') ? 'image/jpeg' : 'image/png';
-              return { url: `data:${mime};base64,${base64}`, providerUsed: 'Cloudflare Workers AI 官方画质引擎' };
-            }
+            const base64 = arrayBufferToBase64(arrayBuffer);
+            const mime = contentType.includes('image/jpeg') ? 'image/jpeg' : 'image/png';
+            return { url: `data:${mime};base64,${base64}`, providerUsed: 'Cloudflare Workers AI 官方画质引擎' };
           } else {
             attemptedErrors.push(await parseErrorResponse(cfResponse, 'Cloudflare AI 节点繁忙'));
           }
@@ -344,7 +311,6 @@ export async function POST(req: NextRequest) {
       if (siliconApiKey) {
         try {
           const dynamicTimeout = Math.max(35000, Number(steps) * 1000);
-          const sfGuidance = getOptimalGuidanceScale(model, guidance);
           const siliconRes = await fetchWithRetry('https://api.siliconflow.cn/v1/image/generations', {
             method: 'POST',
             headers: {
@@ -359,7 +325,7 @@ export async function POST(req: NextRequest) {
               batch_size: 1,
               seed: currentSeed,
               num_inference_steps: Math.min(Number(steps) || 25, 50),
-              guidance_scale: sfGuidance,
+              guidance_scale: Number(guidance) || 7.0,
             }),
             timeoutMs: dynamicTimeout,
             maxRetries: 2,
@@ -376,14 +342,12 @@ export async function POST(req: NextRequest) {
         }
       }
 
-      // 3. Pollinations High Quality Free Pool Failover with enhanced quality parameter
+      // 3. Pollinations High Quality Free Pool Failover
       try {
         const dynamicTimeout = Math.max(35000, Number(steps) * 1000);
         const polModel = mapModelToPollinations(model, styleId);
         const encodedPrompt = encodeURIComponent(prompt.trim());
-        const encodedNegative = encodeURIComponent(negativePrompt.trim());
-
-        const pollinationsUrl = `https://image.pollinations.ai/prompt/${encodedPrompt}?nologo=true&seed=${currentSeed}&width=${resBucket.width}&height=${resBucket.height}&model=${polModel}&negative=${encodedNegative}&enhance=true&quality=100`;
+        const pollinationsUrl = `https://image.pollinations.ai/prompt/${encodedPrompt}?nologo=true&seed=${currentSeed}&width=${resBucket.width}&height=${resBucket.height}&model=${polModel}`;
 
         const polResponse = await fetchWithRetry(pollinationsUrl, {
           headers: { 'User-Agent': 'Mozilla/5.0 (compatible; FoxAI/3.0)' },
@@ -406,11 +370,12 @@ export async function POST(req: NextRequest) {
       throw new Error(attemptedErrors.join(' | ') || '算力节点处理异常，请检查配额或稍后重试');
     };
 
-    // Async task handling
+    // If asyncTask flag is true (for Vercel/Cloudflare 10s protection), create taskId and resolve in background
     const taskId = `task_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
     if (asyncTask) {
       taskStore.set(taskId, { status: 'processing', createdAt: Date.now() });
 
+      // Run background execution
       (async () => {
         try {
           for (let i = 0; i < count; i++) {

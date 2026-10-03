@@ -6,10 +6,10 @@ import { SAMPLING_METHODS, SCHEDULER_TYPES } from '@/lib/constants';
 
 const QUICK_ASPECT_RATIOS = [
   { label: '1:1 正方形', value: '1:1', icon: '⏹️', w: 1024, h: 1024 },
-  { label: '16:9 横屏', value: '16:9', icon: '🖥️', w: 1216, h: 832 },
-  { label: '9:16 手机屏', value: '9:16', icon: '📱', w: 832, h: 1216 },
-  { label: '4:3 经典屏', value: '4:3', icon: '🖼️', w: 1152, h: 864 },
-  { label: '3:4 竖屏', value: '3:4', icon: '📄', w: 864, h: 1152 },
+  { label: '16:9 横屏', value: '16:9', icon: '🖥️', w: 1280, h: 720 },
+  { label: '9:16 手机屏', value: '9:16', icon: '📱', w: 720, h: 1280 },
+  { label: '4:3 经典屏', value: '4:3', icon: '🖼️', w: 1024, h: 768 },
+  { label: '3:4 竖屏', value: '3:4', icon: '📄', w: 768, h: 1024 },
 ];
 
 export const Txt2ImgTab: React.FC = () => {
